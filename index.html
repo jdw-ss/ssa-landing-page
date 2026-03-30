@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sportsbook Science Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0e14;
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Subtle animated gradient background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(74, 222, 128, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        header {
+            text-align: center;
+            padding: 80px 20px 40px;
+        }
+
+        header h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #c9d1d9 0%, #58a6ff 50%, #4ade80 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+
+        header p {
+            font-size: 1.15rem;
+            color: #8b949e;
+            font-weight: 300;
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .projects {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 24px;
+            width: 100%;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #161b22 0%, #1a1f27 100%);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 28px;
+            transition: all 0.25s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            border-color: #58a6ff;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(88, 166, 255, 0.1);
+        }
+
+        .card.live:hover { border-color: #4ade80; box-shadow: 0 8px 30px rgba(74, 222, 128, 0.1); }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 14px;
+            display: block;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #e6edf3;
+            margin-bottom: 8px;
+        }
+
+        .card p {
+            font-size: 0.9rem;
+            color: #8b949e;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        .card-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .badge-live {
+            background: rgba(74, 222, 128, 0.15);
+            color: #4ade80;
+        }
+
+        .badge-soon {
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+        }
+
+        .badge-seasonal {
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+        }
+
+        footer {
+            text-align: center;
+            padding: 60px 20px 30px;
+            margin-top: auto;
+            color: #484f58;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 600px) {
+            header { padding: 50px 16px 30px; }
+            header h1 { font-size: 1.8rem; }
+            header p { font-size: 1rem; }
+            .projects { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Sportsbook Science Analytics</h1>
+        <p>Data-driven sports analytics tools for smarter decisions</p>
+    </header>
+
+    <div class="projects">
+        <a href="https://golf.sportsbookscienceanalytics.com" class="card live">
+            <span class="card-icon">&#9971;</span>
+            <h2>Golf Tournament Predictor</h2>
+            <p>Composite player rankings, strokes gained analysis, course fit scoring, and tournament history — updated every 3 hours.</p>
+            <span class="card-badge badge-live">Live</span>
+        </a>
+
+        <div class="card">
+            <span class="card-icon">&#127944;</span>
+            <h2>NFL Mock Draft Tracker</h2>
+            <p>Aggregates mock drafts from top sources daily. Track how player stock rises and falls leading up to draft night.</p>
+            <span class="card-badge badge-seasonal">Seasonal</span>
+        </div>
+
+        <div class="card">
+            <span class="card-icon">&#127936;</span>
+            <h2>NBA Play-by-Play</h2>
+            <p>Complete NBA play-by-play data pipeline. Every possession, every game, exported and archived daily.</p>
+            <span class="card-badge badge-soon">Coming Soon</span>
+        </div>
+
+        <div class="card">
+            <span class="card-icon">&#127954;</span>
+            <h2>NHL Goal Scraper</h2>
+            <p>Daily PGA Tour-style goal tracking from Stathead. Every goal, every game, appended to a master dataset.</p>
+            <span class="card-badge badge-soon">Coming Soon</span>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 Sportsbook Science Analytics
+    </footer>
+</body>
+</html>

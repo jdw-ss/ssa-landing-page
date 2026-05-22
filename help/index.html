@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="index, follow">
+    <meta name="description" content="Help and FAQ for Sportsbook Science Analytics — answers to common questions about subscriptions, sign-in, supported sports, and supported browsers.">
+    <title>Help — Sportsbook Science Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0e14;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(74, 222, 128, 0.03) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        /* Top bar with brand + nav-right (Help + Account) */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            border-bottom: 1px solid #21262d;
+        }
+        .brand {
+            font-size: 14px;
+            font-weight: 600;
+            color: #c9d1d9;
+            letter-spacing: -0.3px;
+            text-decoration: none;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .nav-right a {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .nav-right a.active { color: #4ade80; font-size: 15px; font-weight: 600; }
+        .nav-right a:hover { color: #c9d1d9; }
+        .account-stub {
+            position: relative;
+        }
+        .account-stub button {
+            background: transparent;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            font: inherit;
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .account-stub button:hover { border-color: #4ade80; }
+        .account-stub-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            min-width: 240px;
+            padding: 8px 0;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+        }
+        .account-stub-menu.open { display: block; }
+        .account-stub-menu .item {
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #8b949e;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .account-stub-menu .item.header {
+            color: #c9d1d9;
+            font-weight: 600;
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 12px;
+            margin-bottom: 4px;
+        }
+        .account-stub-menu .item .badge {
+            font-size: 11px;
+            color: #6e7681;
+            background: #21262d;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        main { max-width: 800px; margin: 0 auto; padding: 64px 24px 96px; }
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #c9d1d9 0%, #58a6ff 50%, #4ade80 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 32px;
+        }
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #e6edf3;
+            margin: 48px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #21262d;
+            letter-spacing: -0.2px;
+        }
+        details {
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #161b22 0%, #1a1f27 100%);
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        details:hover { border-color: #58a6ff; }
+        details[open] { border-color: #4ade80; }
+        summary {
+            cursor: pointer;
+            padding: 16px 20px;
+            font-weight: 500;
+            color: #e6edf3;
+            font-size: 0.95rem;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::after {
+            content: '+';
+            color: #8b949e;
+            font-size: 1.3rem;
+            font-weight: 300;
+            transition: transform 0.2s;
+        }
+        details[open] summary::after { content: '−'; }
+        details .body {
+            padding: 0 20px 20px;
+            color: #8b949e;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        details .body code {
+            background: #21262d;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #d2a8ff;
+        }
+        details .body a { color: #58a6ff; }
+        details .body p + p { margin-top: 10px; }
+        details .body ul { margin: 10px 0 0 24px; }
+        details .body ul li { margin-bottom: 4px; }
+
+        footer {
+            text-align: center;
+            padding: 24px;
+            color: #6e7681;
+            font-size: 13px;
+            border-top: 1px solid #21262d;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="https://sportsbookscienceanalytics.com" class="brand">SSA</a>
+        <div class="nav-right">
+            <a href="https://sportsbookscienceanalytics.com/help" class="active">Help</a>
+            <div class="account-stub">
+                <button id="account-btn" aria-haspopup="true" aria-expanded="false">
+                    <span>Account</span>
+                    <span style="font-size: 10px;">▾</span>
+                </button>
+                <div class="account-stub-menu" id="account-menu">
+                    <div class="item header">Account features launching with paid products</div>
+                    <div class="item">Active subscriptions <span class="badge">soon</span></div>
+                    <div class="item">Settings <span class="badge">soon</span></div>
+                    <div class="item">Sign in <span class="badge">soon</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <h1>Help &amp; FAQ</h1>
+
+        <h2>Getting Started</h2>
+
+        <details>
+            <summary>Which sports does Sportsbook Science Analytics cover?</summary>
+            <div class="body">
+                <p>Six leagues each have their own subdomain — Golf, CFL, NFL, NBA, NHL, and NCAA Football. Golf and NFL have live dashboards today; CFL, NBA, NHL, and NCAAF are placeholders while the customer-facing products are built.</p>
+                <p>The home page at <a href="https://sportsbookscienceanalytics.com">sportsbookscienceanalytics.com</a> lists every league with its current status.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary>How do I access my subscriptions?</summary>
+            <div class="body">
+                <p>Account management and subscription handling are launching alongside the first paid product. For now the Account button in the nav bar is a placeholder.</p>
+                <p>If you already have access to one of the live dashboards through another channel, sign in via the Google prompt that appears when you first visit that league's site.</p>
+            </div>
+        </details>
+
+        <h2>Sign-in &amp; Browser Support</h2>
+
+        <details>
+            <summary>Why does Safari keep asking me to sign in?</summary>
+            <div class="body">
+                <p>Safari's <strong>Prevent Cross-Site Tracking</strong> setting (Settings → Safari → Privacy) treats subdomain iframes as third-party in its most aggressive Intelligent Tracking Prevention (ITP) mode. SSA's single sign-on relies on a small iframe handshake between each league subdomain and a shared auth subdomain — when ITP blocks that, Safari can't see your active session and prompts you to sign in again.</p>
+                <p>Workarounds, in order of preference:</p>
+                <ul>
+                    <li>Use Chrome, Edge, Firefox, or Safari with default privacy settings — all four work without any configuration changes.</li>
+                    <li>In Safari, add <code>sportsbookscienceanalytics.com</code> to the <strong>Allow Cross-Site Tracking</strong> exception list (Settings → Safari → Advanced → Website Tracking).</li>
+                    <li>Turn off Prevent Cross-Site Tracking entirely. Most aggressive privacy users prefer to leave this on — that's a fine choice; the cost is just one extra sign-in per league site per session.</li>
+                </ul>
+                <p>This is a known limitation of Firebase Authentication on Safari ITP, not specific to SSA.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary>Which browsers are supported?</summary>
+            <div class="body">
+                <p>Current desktop versions of Chrome, Edge, Firefox, and Safari are all supported. Mobile Chrome and Safari on iOS work as well. SSA is built with progressive enhancement — older browsers will see the dashboard but may not get the smoothest cross-league sign-in experience.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary>I'm signed in on one league site. Will I be signed in on the others?</summary>
+            <div class="body">
+                <p>Yes. Sign in once on any league site (e.g. <code>nfl.sportsbookscienceanalytics.com</code>) and you'll be signed in automatically when you visit the others (Golf, CFL, NBA, NHL, NCAAF). The handshake happens in the background — you shouldn't see a sign-in prompt again until your session expires (typically several days).</p>
+                <p>If you do see a sign-in prompt on a second league site, see the Safari question above.</p>
+            </div>
+        </details>
+
+        <h2>Data &amp; Models</h2>
+
+        <details>
+            <summary>How often are the dashboards updated?</summary>
+            <div class="body">
+                <p>Refresh cadence varies by league:</p>
+                <ul>
+                    <li><strong>Golf</strong> — every 3 hours during tournament weeks.</li>
+                    <li><strong>NFL Mock Draft Tracker</strong> — once daily during draft season.</li>
+                    <li><strong>CFL, NBA, NHL, NCAAF</strong> — refresh schedule will be published alongside each customer-facing product launch.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details>
+            <summary>Where does the data come from?</summary>
+            <div class="body">
+                <p>Each league has its own source: DataGolf for Golf, CFL.ca for CFL, a mix of public mock-draft sites for NFL, and similar public/aggregator feeds for the upcoming leagues. Specific source attribution is shown in each dashboard's footer when applicable.</p>
+            </div>
+        </details>
+
+        <h2>Account &amp; Billing</h2>
+
+        <details>
+            <summary>How do I cancel my subscription?</summary>
+            <div class="body">
+                <p>Subscription management is launching with the first paid product. Once available, you'll be able to cancel anytime from the Account menu in the nav bar. No phone calls, no retention scripts.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary>Do you offer refunds?</summary>
+            <div class="body">
+                <p>Refund policy will be published with the first paid product launch. SSA prefers a "first month free" or "satisfaction guarantee" model over a refund maze — exact terms TBD.</p>
+            </div>
+        </details>
+
+        <h2>Something Else</h2>
+
+        <details>
+            <summary>I found a bug or have a feature request. Who do I tell?</summary>
+            <div class="body">
+                <p>Email <a href="mailto:jdwilson@sportsbookscienceanalytics.com">jdwilson@sportsbookscienceanalytics.com</a> with as much detail as possible: which league site, which browser, what you saw vs. what you expected. Screenshots help.</p>
+            </div>
+        </details>
+    </main>
+
+    <footer>
+        &copy; 2026 Sportsbook Science Analytics
+    </footer>
+
+    <script>
+        const btn = document.getElementById('account-btn');
+        const menu = document.getElementById('account-menu');
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = menu.classList.toggle('open');
+            btn.setAttribute('aria-expanded', String(open));
+        });
+        document.addEventListener('click', (e) => {
+            if (!menu.contains(e.target) && e.target !== btn) {
+                menu.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+    </script>
+</body>
+</html>

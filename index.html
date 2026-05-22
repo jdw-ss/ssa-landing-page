@@ -146,9 +146,104 @@
             header p { font-size: 1rem; }
             .projects { padding: 0 16px; }
         }
+
+        /* Top bar (Help + Account on right) */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            border-bottom: 1px solid #21262d;
+        }
+        .top-bar .brand {
+            font-size: 14px;
+            font-weight: 600;
+            color: #c9d1d9;
+            letter-spacing: -0.3px;
+            text-decoration: none;
+        }
+        .nav-right { display: flex; align-items: center; gap: 20px; }
+        .nav-right a {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .nav-right a:hover { color: #c9d1d9; }
+        .account-stub { position: relative; }
+        .account-stub button {
+            background: transparent;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            font: inherit;
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .account-stub button:hover { border-color: #4ade80; }
+        .account-stub-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            min-width: 240px;
+            padding: 8px 0;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+        }
+        .account-stub-menu.open { display: block; }
+        .account-stub-menu .item {
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #8b949e;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .account-stub-menu .item.header {
+            color: #c9d1d9;
+            font-weight: 600;
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 12px;
+            margin-bottom: 4px;
+        }
+        .account-stub-menu .item .badge {
+            font-size: 11px;
+            color: #6e7681;
+            background: #21262d;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
+    <div class="top-bar">
+        <a href="https://sportsbookscienceanalytics.com" class="brand">SSA</a>
+        <div class="nav-right">
+            <a href="https://sportsbookscienceanalytics.com/help">Help</a>
+            <div class="account-stub">
+                <button id="account-btn" aria-haspopup="true" aria-expanded="false">
+                    <span>Account</span>
+                    <span style="font-size: 10px;">▾</span>
+                </button>
+                <div class="account-stub-menu" id="account-menu">
+                    <div class="item header">Account features launching with paid products</div>
+                    <div class="item">Active subscriptions <span class="badge">soon</span></div>
+                    <div class="item">Settings <span class="badge">soon</span></div>
+                    <div class="item">Sign in <span class="badge">soon</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <header>
         <h1>Sportsbook Science Analytics</h1>
         <p>Data-driven sports analytics tools for smarter decisions</p>
@@ -201,5 +296,21 @@
     <footer>
         &copy; 2026 Sportsbook Science Analytics
     </footer>
+
+    <script>
+        const btn = document.getElementById('account-btn');
+        const menu = document.getElementById('account-menu');
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = menu.classList.toggle('open');
+            btn.setAttribute('aria-expanded', String(open));
+        });
+        document.addEventListener('click', (e) => {
+            if (!menu.contains(e.target) && e.target !== btn) {
+                menu.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+    </script>
 </body>
 </html>

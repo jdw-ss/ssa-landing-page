@@ -229,16 +229,17 @@
         <h2>Sign-in &amp; Browser Support</h2>
 
         <details>
-            <summary>Why does Safari keep asking me to sign in?</summary>
+            <summary>Why does Safari sometimes ask me to sign in again?</summary>
             <div class="body">
-                <p>Safari's <strong>Prevent Cross-Site Tracking</strong> setting (Settings → Safari → Privacy) treats subdomain iframes as third-party in its most aggressive Intelligent Tracking Prevention (ITP) mode. SSA's single sign-on relies on a small iframe handshake between each league subdomain and a shared auth subdomain — when ITP blocks that, Safari can't see your active session and prompts you to sign in again.</p>
-                <p>Workarounds, in order of preference:</p>
+                <p>SSA stores your sign-in state in a first-party session cookie scoped to <code>sportsbookscienceanalytics.com</code>, which works in Safari with default privacy settings (including Prevent Cross-Site Tracking enabled). The cookie is set <code>HttpOnly</code> + <code>Secure</code> + <code>SameSite=Lax</code>, so Safari ITP does not interfere with it.</p>
+                <p>Cases where you may still see the sign-in prompt:</p>
                 <ul>
-                    <li>Use Chrome, Edge, Firefox, or Safari with default privacy settings — all four work without any configuration changes.</li>
-                    <li>In Safari, add <code>sportsbookscienceanalytics.com</code> to the <strong>Allow Cross-Site Tracking</strong> exception list (Settings → Safari → Advanced → Website Tracking).</li>
-                    <li>Turn off Prevent Cross-Site Tracking entirely. Most aggressive privacy users prefer to leave this on — that's a fine choice; the cost is just one extra sign-in per league site per session.</li>
+                    <li>Your 14-day session has expired — sign in again, the new session will carry across all league sites.</li>
+                    <li>You're in a private browsing window (cookies don't persist between private sessions).</li>
+                    <li>You've cleared cookies for <code>sportsbookscienceanalytics.com</code> or any of its subdomains.</li>
+                    <li>You have a browser extension or content blocker that strips cookies aggressively.</li>
                 </ul>
-                <p>This is a known limitation of Firebase Authentication on Safari ITP, not specific to SSA.</p>
+                <p>If sign-in fails for any other reason, contact us (link at the bottom of this page).</p>
             </div>
         </details>
 
@@ -252,8 +253,8 @@
         <details>
             <summary>I'm signed in on one league site. Will I be signed in on the others?</summary>
             <div class="body">
-                <p>Yes. Sign in once on any league site (e.g. <code>nfl.sportsbookscienceanalytics.com</code>) and you'll be signed in automatically when you visit the others (Golf, CFL, NBA, NHL, NCAAF). The handshake happens in the background — you shouldn't see a sign-in prompt again until your session expires (typically several days).</p>
-                <p>If you do see a sign-in prompt on a second league site, see the Safari question above.</p>
+                <p>Yes. Sign in once on any league site and you'll be signed in automatically when you visit the others (Golf, CFL, NFL, NBA, NHL, NCAAF). A parent-domain session cookie carries your session across every <code>sportsbookscienceanalytics.com</code> subdomain — your next league visit recognizes you without a second sign-in prompt.</p>
+                <p>Sessions last 14 days. After that, you'll see the sign-in prompt once more, and the new session covers the next 14 days across all leagues.</p>
             </div>
         </details>
 

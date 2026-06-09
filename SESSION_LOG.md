@@ -8,6 +8,23 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 <!-- New entries go directly below this line -->
 
+## 2026-06-09 — Flip CFL homepage card to Live
+
+**Agent**: claude-opus-4-6 | **Commits**: `9f3c719`
+
+**What.** CFL's public surface (`cfl.SSA`) has been live since the public-ATS
+launch, but its homepage card was still badged "Coming Soon" (`class="card"` +
+`badge-soon`) while the Golf and NFL placeholder cards were already "Live".
+Flipped CFL to `class="card live"` + `badge-live` "Live" so the homepage
+matches reality. Verified rendered Live in preview + on the production apex;
+deployed revision `ssa-landing-00007-464` (apex + www both 200).
+
+**Gotcha recorded.** These badges are hand-set and decoupled from each league's
+actual launch state — added a Gotcha to `CLAUDE.md` so the next public launch
+(NBA / NHL / NCAAF) remembers to flip its card here.
+
+---
+
 ## 2026-06-01 — FAQ rewrite for parent-domain session-cookie SSO
 
 **Agent**: claude-opus-4-7 | **Commits**: `9354274`

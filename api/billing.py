@@ -43,6 +43,17 @@ logger = logging.getLogger(__name__)
 ACTIVE_STATUSES = {"active", "trialing", "past_due"}
 
 
+def field(obj, key: str, default=None):
+    """Safe field access for Stripe SDK objects: they support obj[key] but NOT
+    dict-style .get() (attribute lookup raises instead — found 2026-07-30).
+    Works on plain dicts too. None values fall back to the default."""
+    try:
+        val = obj[key]
+    except (KeyError, TypeError, IndexError):
+        return default
+    return default if val is None else val
+
+
 def _price_env(sku: str) -> str:
     return f"STRIPE_PRICE_{sku.upper()}"
 
@@ -174,7 +185,8 @@ def _recompute(uid: str, stripe_customer_id: str) -> None:
                 "sku": sku,
                 "label": spec["label"],
                 "status": sub.status,
-                "current_period_end": sub.get("current_period_end"),
+                "current_period_end": field(sub, "current_period_end")
+                    or field(item, "current_period_end"),
                 "subscription_id": sub.id,
             })
     ent.write_entitlements(uid, slugs, packages)
@@ -197,22 +209,23 @@ def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
     obj = event["data"]["object"]
 
     if etype == "checkout.session.completed":
-        uid = obj.get("client_reference_id")
-        customer_id = obj.get("customer")
+        uid = field(obj, "client_reference_id")
+        customer_id = field(obj, "customer")
         if uid and customer_id:
-            email = (obj.get("customer_details") or {}).get("email", "") or ""
+            email = field(field(obj, "customer_details", {}), "email", "") or ""
             ent.set_customer(uid, email.lower(), customer_id)
             _recompute(uid, customer_id)
         else:
-            logger.error("checkout.session.completed missing uid/customer: %s", obj.get("id"))
+            logger.error("checkout.session.completed missing uid/customer: %s",
+                         field(obj, "id"))
 
     elif etype in {
         "customer.subscription.created",
         "customer.subscription.updated",
         "customer.subscription.deleted",
     }:
-        customer_id = obj.get("customer")
-        uid = (obj.get("metadata") or {}).get("uid") or (
+        customer_id = field(obj, "customer")
+        uid = field(field(obj, "metadata", {}), "uid") or (
             ent.uid_for_stripe_customer(customer_id) if customer_id else None
         )
         if uid and customer_id:

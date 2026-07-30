@@ -66,7 +66,9 @@ def _is_auth_disabled() -> bool:
 
 
 def _dev_user() -> dict:
-    return {"uid": "dev", "email": "dev@local", "name": "Dev User"}
+    # example.com, not "dev@local" — Stripe's Customer.create rejects emails
+    # without a TLD, which broke local test-mode checkout (2026-07-30).
+    return {"uid": "dev", "email": "dev@example.com", "name": "Dev User"}
 
 
 def _decode_session_cookie(session: Optional[str]) -> Optional[dict]:

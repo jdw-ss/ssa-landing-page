@@ -104,6 +104,15 @@ None.
   webhook forwarding (steps in `.env.example`). Dev mode (`DISABLE_AUTH=1`)
   skips all Firestore writes, so local webhook tests exercise checkout +
   webhook receipt, not the entitlement write (that's verified at launch).
+- **The Stripe account runs Managed Payments (merchant-of-record, "sold
+  through Link").** Products REQUIRE an eligible `tax_code` or Checkout 400s —
+  the bootstrap script sets `txcd_10000000` (General – Electronically Supplied
+  Services). Stripe handles sales tax and is the merchant of record, with its
+  own fee structure and Link-branded checkout. Keep-vs-disable is an open
+  business decision (John) before launch.
+- **Stripe SDK objects do NOT support dict-style `.get()`** (attribute lookup
+  raises `AttributeError: get`) — use `api/billing.py::field()` for any
+  optional field on webhook payloads or API responses.
 - **The session mint accepts ANY Google user — on purpose.** Don't "fix" it by
   adding an allow-list; customer authorization = Firestore entitlements,
   enforced league-side. Operator gating lives on `internal.<league>` hosts.

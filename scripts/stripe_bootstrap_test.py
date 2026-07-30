@@ -29,6 +29,13 @@ except ImportError:
     pass
 
 from api import entitlements as ent
+from api.billing import field
+
+# John's Stripe account has Managed Payments (merchant-of-record) enabled by
+# default, which requires an eligible tax_code on every product. This is the
+# generic "General - Electronically Supplied Services" code — refine per
+# product in the dashboard if ever needed.
+TAX_CODE = "txcd_10000000"
 
 
 def main() -> int:
@@ -49,7 +56,7 @@ def main() -> int:
 
     existing: dict[str, object] = {}
     for prod in stripe.Product.list(active=True, limit=100).auto_paging_iter():
-        sku = (prod.get("metadata") or {}).get("sku")
+        sku = field(field(prod, "metadata", {}), "sku")
         if sku:
             existing[sku] = prod
 
@@ -62,14 +69,19 @@ def main() -> int:
                 name=spec["label"],
                 description=spec["blurb"],
                 metadata={"sku": sku},
+                tax_code=TAX_CODE,
             )
             print(f"created product {prod.id}  {spec['label']}")
         else:
-            print(f"reusing product {prod.id}  {spec['label']}")
+            if not field(prod, "tax_code"):
+                stripe.Product.modify(prod.id, tax_code=TAX_CODE)
+                print(f"reusing product {prod.id}  {spec['label']} (added tax_code)")
+            else:
+                print(f"reusing product {prod.id}  {spec['label']}")
 
         price = None
         for p in stripe.Price.list(product=prod.id, active=True, limit=10):
-            if (p.get("recurring") or {}).get("interval") == "month":
+            if field(field(p, "recurring", {}), "interval") == "month":
                 price = p
                 break
         if price is None:

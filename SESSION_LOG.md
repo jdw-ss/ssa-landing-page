@@ -8,6 +8,42 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 <!-- New entries go directly below this line -->
 
+## 2026-07-30 — Apex becomes the SSA customer auth + billing hub
+
+**Agent**: claude-fable-5 | **Commits**: `f15fc9f`
+
+**What.** Kicked off the portfolio paywall (John's requirements + decisions
+captured in `docs/adr/0001-apex-auth-billing-hub.md`): converted this repo
+from static nginx to a soccer-hub-style FastAPI service. New: `/signin`
+(Google popup, the ONE customer sign-in origin for all of SSA, self-hosted
+`/__/auth/*`), `/pricing` (server-driven catalog: 4 sport SKUs + NCAAF+NFL
+bundle at 20% off + All-Access at 50% off, placeholder $9.99 base),
+`/account` (packages, Stripe Customer Portal, sign out), an any-user
+`__session` mint (`api/app.py` — deliberately NO allow-list; league internal
+mints unchanged), `api/billing.py` (Checkout w/ promo codes, portal, webhook
+→ recompute-from-scratch Firestore entitlements in `ssa-auth-71d16`), and
+`static/js/account.js` — the live Account widget replacing the "soon" stub on
+every apex page. Help FAQ updated (subscriptions/cancel answers now real;
+stale sports list fixed). Verified in local preview (port 8085, dev mode w/
+`DEV_ENTITLEMENTS=cfl,golf`): all pages render, Active/Subscribe states
+correct, 503 paths degrade with friendly banners, console clean.
+
+**Decisions (John).** Monthly Stripe subs; stackable à-la-carte (one sub per
+purchase, union of slugs); Google-only sign-in; anonymous free tier; CFL +
+NCAAF + NFL + Golf sellable day 1; free hook = power rankings; subscribers
+get rankings/schedule+picks/forecasts/team sheets, NOT admin or ATS detail;
+promo codes now, refer-a-friend later; flip apex noindex at launch.
+
+**Not done / next.** NOT deployed — `./deploy.sh bootstrap` prints the
+one-time steps (Firestore create, IAM, Firebase authorizedDomains + OAuth
+redirect URI for the apex, Stripe products/secrets/webhook). John to supply
+real prices + create Stripe test products. League-side rollout (per-league
+`require_entitlement`, un-host-gate `/api/session/exchange` on bare hosts,
+public module pages — CFL pilot first) is scoped in the ADR. `nginx.conf` is
+dead but kept pending John's OK to delete.
+
+---
+
 ## 2026-06-09 — Flip CFL homepage card to Live
 
 **Agent**: claude-opus-4-6 | **Commits**: `9f3c719`

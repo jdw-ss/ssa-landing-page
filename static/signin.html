@@ -243,6 +243,25 @@
 
         const explicitNext = new URLSearchParams(location.search).has("next");
 
+        // A signed-in Firebase user does NOT guarantee a live parent-domain
+        // `__session` cookie (sign-out on any SSA site clears the cookie while
+        // other origins' local state lingers; the cookie also expires on its
+        // own 14-day clock). Re-mint it whenever we pass through here signed
+        // in, so league sites always find a fresh session after the bounce.
+        async function remintSession(user) {
+            if (!user || typeof user.getIdToken !== "function") return; // dev stub
+            try {
+                await fetch("/api/session", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ idToken: await user.getIdToken() }),
+                });
+            } catch (e) {
+                console.warn("Session re-mint failed:", e);
+            }
+        }
+
         async function init() {
             try {
                 await loadAuth();
@@ -254,6 +273,7 @@
             }
             const user = window.Auth.user();
             if (user && user.email) {
+                await remintSession(user);
                 // Came here mid-flow (e.g. from a league site or after the
                 // mobile redirect)? Carry straight on to the destination.
                 if (explicitNext) {

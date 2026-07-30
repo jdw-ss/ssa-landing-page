@@ -8,6 +8,33 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 <!-- New entries go directly below this line -->
 
+## 2026-07-30 (later) — Hub DEPLOYED + Stripe test-mode E2E + launch gate
+
+**Agent**: claude-fable-5 | **Commits**: `5ab2fb0`, `a1b49e8`
+
+**What.** (1) **Pricing launch gate** (`5ab2fb0`): /pricing shows NO amounts
+and disabled "Launching soon" buttons until Stripe is configured on the
+service; `SHOW_PREVIEW_PRICES=1` is the local-dev override (John is still
+exploring prices). Adds .env auto-load, dev-mode Firestore write guards, and
+`scripts/stripe_bootstrap_test.py` (idempotent test-mode catalog creator,
+sk_test-only). (2) **Live Stripe sandbox E2E** with John's account: checkout
+session → hosted page → webhook lifecycle via `stripe listen`; subscribe
+computed `['ncaaf']`, cancel computed `[]`, all events 200. Three bugs found
++ fixed (`a1b49e8`): dev stub email needs a TLD; Stripe SDK objects lack
+dict `.get()` (new `field()` accessor — the webhook would have crashed in
+prod); **the Stripe account runs Managed Payments** → products REQUIRE a
+`tax_code` (script sets `txcd_10000000`; keep-vs-disable MoR is John's open
+pre-launch decision). (3) **DEPLOYED to Cloud Run**: Firestore created in
+`ssa-auth-71d16` (us-east1) + IAM grants (datastore.user cross-project,
+tokenCreator on self); apex+www added to authorizedDomains via API; FIREBASE_*
+envs set; apex/www/api all 200; launch gate confirmed live (no prices shown,
+no purchase possible). John registered the OAuth redirect URI in the Console.
+Public business name: dashboard-only change (API needs live keys) — John to
+set "Sportsbook Science" under Settings → Business/Public details.
+
+---
+
+
 ## 2026-07-30 — Apex becomes the SSA customer auth + billing hub
 
 **Agent**: claude-fable-5 | **Commits**: `f15fc9f`

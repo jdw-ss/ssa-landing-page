@@ -1,29 +1,57 @@
-# SSA Landing Page
+# SSA Landing Page / Apex Hub
 
 ## Snapshot
 
-Static HTML/CSS/JS landing page for **sportsbookscienceanalytics.com** (apex + www). Served by an nginx-style Cloud Run service. Status: **live**.
+The apex for **sportsbookscienceanalytics.com** (apex + www) — since 2026-07-30
+the portfolio's **customer auth + billing hub**, not just a landing page (see
+`docs/adr/0001-apex-auth-billing-hub.md`). Four jobs: (1) league directory at
+`/` + `/help` FAQ; (2) customer Google sign-in at `/signin` — the ONE origin
+where the popup runs for the whole SSA family, with the Firebase auth handler
+self-proxied at `/__/auth/*`; (3) the parent-domain `__session` SSO mint for
+ANY verified Google user (no allow-list — this is the customer path; league
+internal hosts keep their own `ADMIN_EMAILS` mints); (4) Stripe billing:
+`/pricing` → Checkout, `/account` + Customer Portal, and the webhook that
+writes Firestore entitlements. Status: **converted, not yet deployed** —
+paywall bootstrap pending (`./deploy.sh bootstrap`).
 
 ## Stack
 
-- **Language**: HTML / CSS / JS (static)
-- **Framework**: none — pure static
-- **Hosting**: Cloud Run service serving static files
+- **Language**: Python 3.11 (use `python3`, no venv on the dev box)
+- **Framework**: FastAPI + uvicorn; vanilla-JS static pages (no build step)
+  served from `static/`
+- **Data layer**: Firestore in the shared `ssa-auth-71d16` project —
+  `customers/{uid}` + `entitlements/{uid}` (webhook-only writes)
+- **Billing**: Stripe Checkout + Customer Portal + webhook (`api/billing.py`);
+  SKU catalog + slugs in `api/entitlements.py`
+- **Auth**: firebase-admin session cookies (`api/auth.py`); shared
+  `ssa-auth-71d16` Firebase project; `static/js/auth.js` façade (vendored,
+  same as every league) + `static/js/account.js` (the Account widget all apex
+  pages share)
 
 ## Run locally
 
-```bash
-python -m http.server 8080 --directory "/Users/johnwilson/Claude Projects/ssa-landing-page"
-```
+`.claude/launch.json` config: `ssa-landing` (port **8085**). It sets
+`DISABLE_AUTH=1` (dev@local stub user, Firestore never touched) and
+`DEV_ENTITLEMENTS=cfl,golf` so `/account` + `/pricing` render a customer who
+owns two packages. Stripe unconfigured locally → checkout/portal 503 with
+friendly banners (by design).
 
-`.claude/launch.json` config: `ssa-landing`.
+```bash
+cd '/Users/johnwilson/Claude Projects/ssa-landing-page' && \
+  DISABLE_AUTH=1 DEV_ENTITLEMENTS=cfl,golf PUBLIC_BASE_URL=http://127.0.0.1:8085 \
+  python3 -m uvicorn api.app:app --reload --host 127.0.0.1 --port 8085
+```
 
 ## Cloud infrastructure
 
 - **GCP project**: `golf-data-projects` (shared with `golf-dashboard`)
 - **Region**: `us-east1`
 - **Cloud Run service**: `ssa-landing`
-- **Custom domains**: `sportsbookscienceanalytics.com` (apex) + `www.sportsbookscienceanalytics.com`
+- **Custom domains**: `sportsbookscienceanalytics.com` (apex) + `www.…`
+- **Cross-project deps**: Firestore + Firebase Auth in `ssa-auth-71d16`
+  (runtime SA needs `roles/datastore.user` there); Stripe secrets in
+  `golf-data-projects` Secret Manager (`stripe-secret-key`,
+  `stripe-webhook-secret`)
 
 ## Schedules
 
@@ -31,27 +59,55 @@ None.
 
 ## External connections
 
-None.
+- **Stripe** — Checkout sessions, Customer Portal, subscriptions webhook at
+  `/api/billing/webhook` (events: `checkout.session.completed`,
+  `customer.subscription.created/updated/deleted`)
+- **Firebase Auth** (`ssa-auth-71d16`) — id-token verify, session-cookie
+  mint/verify, custom-token exchange; `/__/auth/*` + `/__/firebase/*`
+  reverse-proxy to `ssa-auth-71d16.firebaseapp.com`
 
 ## Deploy
 
-- **Command**: `./deploy.sh`
+- **Command**: `./deploy.sh` (validates us-east1 image, warns on missing
+  FIREBASE/STRIPE envs, health-checks apex + www + `/api/health`)
+- **One-time paywall bootstrap**: `./deploy.sh bootstrap` prints the exact
+  steps (Firestore create, IAM grants, Firebase authorizedDomains + OAuth
+  redirect URI, envs, Stripe products/webhook). Steps 3's redirect-URI add is
+  **Google Cloud Console only** and the client is shared by every league —
+  edit carefully.
 - **Preview required?** Yes (UI changes)
-- **Predeploy guard**: deploy.sh enforces explicit `--region=us-east1`.
-- **Health check**: `curl` BOTH apex and www must return 200. Deploy script checks both.
 
 ## Companion docs
 
-- `README.md` (if present)
+- `docs/adr/0001-apex-auth-billing-hub.md` — the paywall architecture +
+  league-side rollout checklist
+- `SESSION_LOG.md` — read top entries at session start
 
 ## Related projects
 
-- **`golf-tournament-predictor`** — **same GCP project (`golf-data-projects`)** AND shares the `sportsbookscienceanalytics.com` custom domain; region drift in either project's deploy.sh affects routing here
-
-See `~/Claude Projects/docs/PROJECT_INDEX.md` for the full cross-project map and shared-infrastructure clusters.
+- **`golf-tournament-predictor`** — same GCP project + shared custom domain;
+  region drift in either deploy.sh affects both
+- **`cfl-elo-dashboard`** — the auth/session/proxy pattern source (ADR-0002/0004)
+- **All league services** — consume the entitlements this service's webhook
+  writes; league rollout adds `require_entitlement` per league (ADR-0001 here)
 
 ## Gotchas
 
-- **Homepage Live / Coming-Soon badges are manual and drift.** Each league card's `badge-live` / `badge-soon` class (and the `card live` modifier) in `index.html` is hand-set here — it is NOT derived from whether the league's public host is actually serving. When a league launches its public surface, its card must be flipped by hand to `class="card live"` + `badge-live` "Live". CFL sat stale at "Coming Soon" for a while after its public ATS page went live for exactly this reason. When NBA / NHL / NCAAF launch publicly, update their cards here in the same effort.
-- Two domain mappings (apex + www). When debugging cache / cert issues, check **both** with `gcloud beta run domain-mappings list --region=us-east1 --project=golf-data-projects` — recreating either triggers ~15min–several-hours of managed-cert provisioning (see `ANALYTICS_PROJECT_GUIDELINES.md` → Key Lessons).
-- Lives in the same GCP project as `golf-dashboard`. Region drift in golf-dashboard's deploy.sh can affect AR / source buckets shared with this project.
+- **The session mint accepts ANY Google user — on purpose.** Don't "fix" it by
+  adding an allow-list; customer authorization = Firestore entitlements,
+  enforced league-side. Operator gating lives on `internal.<league>` hosts.
+- **Only the Stripe webhook writes `entitlements/{uid}`.** Never hand-edit or
+  write from request handlers; it's recomputed from the full subscription list
+  on every event (idempotent, self-healing).
+- **Homepage Live / Coming-Soon badges are manual and drift.** When a league
+  launches its public surface, flip its card here (CFL sat stale once already).
+- **Apex is `noindex, nofollow` + `robots.txt Disallow`** until launch — flip
+  BOTH (meta in `static/index.html`, `static/robots.txt`) when the paywall
+  goes live (John's call, 2026-07-30).
+- Two domain mappings (apex + www) — recreating either triggers 15min–hours of
+  cert re-provisioning; check both when debugging cache/cert issues.
+- `nginx.conf` at repo root is **dead** post-conversion (Dockerfile no longer
+  references it) — kept pending John's OK to delete.
+- Firestore reads fail-closed: `/api/me` 503s rather than showing a paying
+  customer as unsubscribed; `/api/billing/catalog` degrades to signed-out
+  rendering instead.

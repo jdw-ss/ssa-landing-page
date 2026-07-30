@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Your account — Sportsbook Science Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        if (location.hostname.startsWith("www.")) {
+            location.replace(location.protocol + "//" + location.hostname.slice(4) +
+                location.pathname + location.search + location.hash);
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0e14;
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(74, 222, 128, 0.03) 0%, transparent 50%);
+            z-index: -1;
+        }
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            border-bottom: 1px solid #21262d;
+        }
+        .brand { font-size: 14px; font-weight: 600; color: #c9d1d9; letter-spacing: -0.3px; text-decoration: none; }
+        .nav-right { display: flex; align-items: center; gap: 20px; }
+        .nav-right a { color: #8b949e; text-decoration: none; font-size: 13px; font-weight: 500; }
+        .nav-right a:hover { color: #c9d1d9; }
+
+        main { max-width: 720px; margin: 0 auto; padding: 56px 24px 96px; width: 100%; }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #c9d1d9 0%, #58a6ff 50%, #4ade80 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 28px;
+        }
+
+        .banner {
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        .banner.show { display: block; }
+        .banner.success { background: rgba(74, 222, 128, 0.08); border: 1px solid rgba(74, 222, 128, 0.4); color: #4ade80; }
+        .banner.info { background: rgba(88, 166, 255, 0.08); border: 1px solid rgba(88, 166, 255, 0.35); color: #58a6ff; }
+
+        .panel {
+            background: linear-gradient(135deg, #161b22 0%, #1a1f27 100%);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .panel h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6e7681;
+            margin-bottom: 16px;
+        }
+
+        .profile { display: flex; align-items: center; gap: 14px; }
+        .avatar {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: linear-gradient(135deg, #58a6ff, #4ade80);
+            color: #0a0e14; font-weight: 700; font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; flex-shrink: 0;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .profile .email { font-size: 1rem; font-weight: 600; color: #e6edf3; overflow-wrap: anywhere; }
+        .profile .sub { font-size: 12.5px; color: #6e7681; margin-top: 2px; }
+
+        .pkg {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 0;
+            border-bottom: 1px solid #21262d;
+        }
+        .pkg:last-child { border-bottom: none; }
+        .pkg .name { font-size: 0.95rem; font-weight: 600; color: #e6edf3; }
+        .pkg .renew { font-size: 12px; color: #6e7681; margin-top: 3px; }
+        .status {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            flex-shrink: 0;
+        }
+        .status.active { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+        .status.past_due { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+        .status.other { background: #21262d; color: #8b949e; }
+
+        .empty { color: #8b949e; font-size: 0.9rem; line-height: 1.6; }
+        .empty a { color: #58a6ff; text-decoration: none; }
+
+        .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+        .actions button, .actions a {
+            border-radius: 8px;
+            padding: 10px 18px;
+            font: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            border: 1px solid #30363d;
+            background: transparent;
+            color: #c9d1d9;
+            transition: all 0.2s;
+        }
+        .actions button:hover, .actions a:hover { border-color: #58a6ff; color: #ffffff; }
+        .actions .primary { background: linear-gradient(135deg, #58a6ff 0%, #4ade80 100%); color: #0a0e14; border: none; font-weight: 700; }
+        .actions .primary:hover { filter: brightness(1.08); color: #0a0e14; }
+        .actions .danger:hover { border-color: #f85149; color: #f85149; }
+        .actions button:disabled { opacity: 0.7; cursor: wait; }
+
+        .loading { color: #6e7681; font-size: 14px; padding: 32px 0; text-align: center; }
+        .hidden { display: none; }
+
+        footer { text-align: center; padding: 24px; margin-top: auto; color: #484f58; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="/" class="brand">SSA</a>
+        <div class="nav-right">
+            <a href="/pricing">Pricing</a>
+            <a href="/help">Help</a>
+        </div>
+    </div>
+
+    <main>
+        <h1>Your account</h1>
+
+        <div class="banner" id="banner"></div>
+
+        <div id="loading" class="loading">Loading your account…</div>
+
+        <div id="content" class="hidden">
+            <div class="panel">
+                <h2>Signed in as</h2>
+                <div class="profile">
+                    <div class="avatar" id="avatar"></div>
+                    <div>
+                        <div class="email" id="email"></div>
+                        <div class="sub">Google account · sessions last 14 days across all SSA sites</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Your packages</h2>
+                <div id="packages"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Manage</h2>
+                <div class="actions">
+                    <button class="primary" id="portal-btn">Manage billing</button>
+                    <a href="/pricing">Explore packages</a>
+                    <button class="danger" id="signout-btn">Sign out</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>&copy; 2026 Sportsbook Science Analytics</footer>
+
+    <script>
+        const banner = document.getElementById("banner");
+        function showBanner(msg, kind) {
+            banner.textContent = msg;
+            banner.className = "banner show " + kind;
+        }
+
+        const params = new URLSearchParams(location.search);
+        if (params.get("checkout") === "success") {
+            showBanner("Payment received — your access activates within a minute or two. " +
+                       "Refresh this page if your package isn't showing yet.", "success");
+        }
+
+        function loadAuth() {
+            if (window.Auth) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const s = document.createElement("script");
+                s.src = "/static/js/auth.js?v=1";
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+
+        function renderPackages(me) {
+            const wrap = document.getElementById("packages");
+            if (!me.packages || !me.packages.length) {
+                wrap.innerHTML = '<div class="empty">No packages yet. ' +
+                    'Power rankings are free on every league site — when you want the ' +
+                    'picks, forecasts and team sheets, <a href="/pricing">pick a package</a>.</div>';
+                return;
+            }
+            wrap.innerHTML = "";
+            for (const p of me.packages) {
+                const row = document.createElement("div");
+                row.className = "pkg";
+                const renews = p.current_period_end
+                    ? "Renews " + new Date(p.current_period_end * 1000).toLocaleDateString(
+                        undefined, { month: "short", day: "numeric", year: "numeric" })
+                    : "";
+                const statusClass = p.status === "active" ? "active"
+                    : p.status === "past_due" ? "past_due" : "other";
+                const statusLabel = p.status === "past_due" ? "payment issue" : p.status;
+                row.innerHTML =
+                    "<div><div class='name'>" + p.label + "</div>" +
+                    "<div class='renew'>" + renews + "</div></div>" +
+                    "<span class='status " + statusClass + "'>" + statusLabel + "</span>";
+                wrap.appendChild(row);
+            }
+        }
+
+        async function init() {
+            try {
+                await loadAuth();
+                await window.Auth.ready();
+            } catch (e) {
+                location.replace("/signin?next=%2Faccount");
+                return;
+            }
+            const user = window.Auth.user();
+            if (!user || !user.email) {
+                location.replace("/signin?next=%2Faccount");
+                return;
+            }
+
+            document.getElementById("email").textContent = user.email;
+            const avatar = document.getElementById("avatar");
+            if (user.photoURL) {
+                avatar.innerHTML = '<img src="' + user.photoURL + '" alt="" referrerpolicy="no-referrer">';
+            } else {
+                avatar.textContent = (user.email[0] || "?").toUpperCase();
+            }
+
+            try {
+                const resp = await fetch("/api/me", { credentials: "same-origin" });
+                if (resp.ok) {
+                    renderPackages(await resp.json());
+                } else if (resp.status === 503) {
+                    document.getElementById("packages").innerHTML =
+                        '<div class="empty">Package info is temporarily unavailable — ' +
+                        "your access on the league sites is unaffected. Try again shortly.</div>";
+                } else {
+                    renderPackages({ packages: [] });
+                }
+            } catch (e) {
+                renderPackages({ packages: [] });
+            }
+
+            document.getElementById("loading").classList.add("hidden");
+            document.getElementById("content").classList.remove("hidden");
+        }
+
+        document.getElementById("portal-btn").addEventListener("click", async () => {
+            const btn = document.getElementById("portal-btn");
+            btn.disabled = true;
+            try {
+                const resp = await fetch("/api/billing/portal", {
+                    method: "POST", credentials: "same-origin",
+                });
+                if (resp.ok) {
+                    const { url } = await resp.json();
+                    location.href = url;
+                    return;
+                }
+                if (resp.status === 404) {
+                    showBanner("No billing profile yet — subscribe to a package first.", "info");
+                } else if (resp.status === 503) {
+                    showBanner("Billing isn't live quite yet.", "info");
+                } else {
+                    showBanner("Couldn't open the billing portal. Try again in a moment.", "info");
+                }
+            } catch (e) {
+                showBanner("Network error opening the billing portal.", "info");
+            }
+            btn.disabled = false;
+        });
+
+        document.getElementById("signout-btn").addEventListener("click", async () => {
+            await window.Auth.signOut();
+            location.href = "/";
+        });
+
+        init();
+    </script>
+</body>
+</html>

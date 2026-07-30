@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Sportsbook Science Analytics pricing — per-sport packages, the Football Bundle, and All-Access.">
+    <title>Pricing — Sportsbook Science Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0e14;
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(74, 222, 128, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
+            z-index: -1;
+        }
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            border-bottom: 1px solid #21262d;
+        }
+        .brand { font-size: 14px; font-weight: 600; color: #c9d1d9; letter-spacing: -0.3px; text-decoration: none; }
+        .nav-right { display: flex; align-items: center; gap: 20px; }
+        .nav-right a { color: #8b949e; text-decoration: none; font-size: 13px; font-weight: 500; }
+        .nav-right a.active { color: #4ade80; font-weight: 600; }
+        .nav-right a:hover { color: #c9d1d9; }
+        .account-stub { position: relative; }
+        .account-stub button {
+            background: transparent;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            font: inherit;
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .account-stub button:hover { border-color: #4ade80; }
+        .account-stub-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            min-width: 240px;
+            padding: 8px 0;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+        }
+        .account-stub-menu.open { display: block; }
+        .account-stub-menu .item {
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #8b949e;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .account-stub-menu .item.header {
+            color: #c9d1d9;
+            font-weight: 600;
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 12px;
+            margin-bottom: 4px;
+        }
+
+        header.hero { text-align: center; padding: 64px 20px 12px; }
+        header.hero h1 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #c9d1d9 0%, #58a6ff 50%, #4ade80 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 14px;
+        }
+        header.hero p { color: #8b949e; font-weight: 300; max-width: 560px; margin: 0 auto; line-height: 1.6; }
+
+        .banner {
+            max-width: 1000px;
+            margin: 24px auto 0;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            display: none;
+        }
+        .banner.show { display: block; }
+        .banner.info { background: rgba(88, 166, 255, 0.08); border: 1px solid rgba(88, 166, 255, 0.35); color: #58a6ff; }
+
+        .free-strip {
+            max-width: 1000px;
+            margin: 28px auto 0;
+            padding: 14px 20px;
+            border: 1px dashed #30363d;
+            border-radius: 10px;
+            color: #8b949e;
+            font-size: 13.5px;
+            line-height: 1.6;
+            text-align: center;
+        }
+        .free-strip strong { color: #4ade80; font-weight: 600; }
+
+        .section-label {
+            max-width: 1000px;
+            margin: 40px auto 0;
+            padding: 0 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6e7681;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 18px;
+            max-width: 1000px;
+            margin: 16px auto 0;
+            padding: 0 24px;
+            width: 100%;
+        }
+        .grid.big { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+
+        .plan {
+            background: linear-gradient(135deg, #161b22 0%, #1a1f27 100%);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 26px 24px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.25s ease;
+        }
+        .plan:hover { border-color: #58a6ff; transform: translateY(-3px); box-shadow: 0 8px 30px rgba(88, 166, 255, 0.1); }
+        .plan.bundle { border-color: rgba(74, 222, 128, 0.5); }
+        .plan.bundle:hover { border-color: #4ade80; box-shadow: 0 8px 30px rgba(74, 222, 128, 0.12); }
+        .plan.all { border-color: rgba(167, 139, 250, 0.5); }
+        .plan.all:hover { border-color: #a78bfa; box-shadow: 0 8px 30px rgba(167, 139, 250, 0.14); }
+
+        .save-chip {
+            position: absolute;
+            top: -10px;
+            right: 16px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .save-chip.green { background: #113a24; color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.5); }
+        .save-chip.purple { background: #2a2150; color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.5); }
+
+        .plan h2 { font-size: 1.1rem; font-weight: 600; color: #e6edf3; margin-bottom: 6px; }
+        .plan .price { font-size: 1.9rem; font-weight: 700; color: #e6edf3; margin: 8px 0 2px; letter-spacing: -0.5px; }
+        .plan .price .per { font-size: 0.85rem; font-weight: 400; color: #6e7681; }
+        .plan .blurb { font-size: 0.86rem; color: #8b949e; line-height: 1.55; margin: 10px 0 18px; flex: 1; }
+
+        .plan button, .plan a.btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            border: 1px solid #30363d;
+            background: transparent;
+            color: #c9d1d9;
+            transition: all 0.2s;
+        }
+        .plan button:hover, .plan a.btn:hover { border-color: #58a6ff; color: #ffffff; }
+        .plan .btn-primary { background: linear-gradient(135deg, #58a6ff 0%, #4ade80 100%); color: #0a0e14; border: none; font-weight: 700; }
+        .plan .btn-primary:hover { filter: brightness(1.08); color: #0a0e14; }
+        .plan .btn-active { border-color: rgba(74, 222, 128, 0.5); color: #4ade80; cursor: default; }
+        .plan .btn-active:hover { border-color: rgba(74, 222, 128, 0.5); color: #4ade80; }
+        .plan button:disabled { opacity: 0.7; cursor: wait; }
+
+        .test-chip {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+            vertical-align: middle;
+        }
+
+        .foot-notes {
+            max-width: 1000px;
+            margin: 36px auto 0;
+            padding: 0 24px;
+            color: #6e7681;
+            font-size: 12.5px;
+            line-height: 1.7;
+            text-align: center;
+        }
+        .foot-notes a { color: #58a6ff; text-decoration: none; }
+
+        footer { text-align: center; padding: 48px 20px 30px; margin-top: auto; color: #484f58; font-size: 0.8rem; }
+
+        @media (max-width: 600px) {
+            header.hero { padding: 44px 16px 8px; }
+            header.hero h1 { font-size: 1.7rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="/" class="brand">SSA</a>
+        <div class="nav-right">
+            <a href="/pricing" class="active">Pricing</a>
+            <a href="/help">Help</a>
+            <div class="account-stub">
+                <button id="account-btn" aria-haspopup="true" aria-expanded="false">
+                    <span>Account</span>
+                    <span style="font-size: 10px;">▾</span>
+                </button>
+                <div class="account-stub-menu" id="account-menu">
+                    <div class="item header">Your SSA account</div>
+                    <a class="item" href="/signin?next=%2Fpricing">Sign in</a>
+                    <a class="item" href="/pricing">View pricing</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <header class="hero">
+        <h1>Pick your sports.<br>Or take the lot.</h1>
+        <p>Monthly packages unlock the full model for a sport — picks, forecasts,
+           and team detail — across its league site. Cancel anytime.</p>
+    </header>
+
+    <div class="banner info" id="banner"></div>
+
+    <div class="free-strip">
+        <strong>Power rankings are free on every league site — no account needed.</strong><br>
+        Packages add the actionable layer: schedules with predicted lines and picks,
+        forecast grids, and team detail sheets.
+    </div>
+
+    <div class="section-label">Per-sport packages</div>
+    <div class="grid" id="sport-grid"></div>
+
+    <div class="section-label">Bundle up</div>
+    <div class="grid big" id="big-grid"></div>
+
+    <div class="foot-notes">
+        Have a promo code? Enter it at checkout.<br>
+        Subscriptions renew monthly and can be canceled anytime from
+        <a href="/account">your account</a> — no phone calls, no retention scripts.
+    </div>
+
+    <footer>&copy; 2026 Sportsbook Science Analytics</footer>
+
+    <script src="/static/js/account.js?v=1" defer></script>
+    <script>
+        const fmt = (cents) => "$" + (cents / 100).toFixed(2);
+        let CATALOG = null;
+
+        function showBanner(msg) {
+            const b = document.getElementById("banner");
+            b.textContent = msg;
+            b.classList.add("show");
+        }
+
+        if (new URLSearchParams(location.search).get("checkout") === "canceled") {
+            showBanner("Checkout canceled — you haven't been charged.");
+        }
+
+        function held(slugs, wanted) {
+            if (slugs.includes("all")) return true;
+            return wanted.every((s) => slugs.includes(s));
+        }
+
+        function planCard(item, data) {
+            const el = document.createElement("div");
+            el.className = "plan" + (item.kind === "bundle" ? " bundle" : item.kind === "all" ? " all" : "");
+
+            let chip = "";
+            if (item.kind === "bundle") chip = '<div class="save-chip green">Save 20%</div>';
+            if (item.kind === "all") chip = '<div class="save-chip purple">50% off everything</div>';
+
+            const testChip = data.billing_configured ? "" : '<span class="test-chip">preview pricing</span>';
+
+            let action;
+            if (held(data.held_slugs, item.slugs)) {
+                const viaAll = !data.held_slugs.includes("all") || item.kind === "all"
+                    ? "✓ Active" : "✓ Included in All-Access";
+                action = '<a class="btn btn-active" href="/account">' + viaAll + "</a>";
+            } else if (!data.signed_in) {
+                action = '<a class="btn" href="/signin?next=%2Fpricing">Sign in to subscribe</a>';
+            } else {
+                const cls = item.kind === "sport" ? "btn" : "btn btn-primary";
+                action = '<button class="' + cls + '" data-sku="' + item.sku + '">Subscribe</button>';
+            }
+
+            el.innerHTML =
+                chip +
+                "<h2>" + item.label + "</h2>" +
+                '<div class="price">' + fmt(item.monthly_cents) +
+                '<span class="per"> /month</span>' + testChip + "</div>" +
+                '<div class="blurb">' + item.blurb + "</div>" +
+                action;
+            return el;
+        }
+
+        async function subscribe(sku, btn) {
+            btn.disabled = true;
+            btn.textContent = "Opening checkout…";
+            try {
+                const resp = await fetch("/api/billing/checkout", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sku }),
+                });
+                if (resp.ok) {
+                    const { url } = await resp.json();
+                    location.href = url;
+                    return;
+                }
+                if (resp.status === 409) {
+                    showBanner("Your current packages already include this — check your account.");
+                } else if (resp.status === 503) {
+                    showBanner("Checkout isn't live quite yet — prices shown are a preview.");
+                } else if (resp.status === 401) {
+                    location.href = "/signin?next=%2Fpricing";
+                    return;
+                } else {
+                    showBanner("Something went wrong starting checkout. Try again in a moment.");
+                }
+            } catch (e) {
+                showBanner("Network error starting checkout. Try again in a moment.");
+            }
+            btn.disabled = false;
+            btn.textContent = "Subscribe";
+        }
+
+        async function render() {
+            const resp = await fetch("/api/billing/catalog", { credentials: "same-origin" });
+            const data = await resp.json();
+            CATALOG = data;
+
+            const sportGrid = document.getElementById("sport-grid");
+            const bigGrid = document.getElementById("big-grid");
+            for (const item of data.catalog) {
+                const card = planCard(item, data);
+                (item.kind === "sport" ? sportGrid : bigGrid).appendChild(card);
+            }
+
+            document.querySelectorAll("button[data-sku]").forEach((btn) => {
+                btn.addEventListener("click", () => subscribe(btn.dataset.sku, btn));
+            });
+        }
+
+        render();
+    </script>
+</body>
+</html>

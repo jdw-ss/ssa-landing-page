@@ -1,6 +1,13 @@
-FROM nginx:alpine
-COPY index.html /usr/share/nginx/html/index.html
-COPY robots.txt /usr/share/nginx/html/robots.txt
-COPY help/ /usr/share/nginx/html/help/
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY api/ api/
+COPY static/ static/
+
 EXPOSE 8080
+
+CMD ["python", "-m", "uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -226,19 +226,19 @@
 </head>
 <body>
     <div class="top-bar">
-        <a href="https://sportsbookscienceanalytics.com" class="brand">SSA</a>
+        <a href="/" class="brand">SSA</a>
         <div class="nav-right">
-            <a href="https://sportsbookscienceanalytics.com/help">Help</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/help">Help</a>
             <div class="account-stub">
                 <button id="account-btn" aria-haspopup="true" aria-expanded="false">
                     <span>Account</span>
                     <span style="font-size: 10px;">▾</span>
                 </button>
                 <div class="account-stub-menu" id="account-menu">
-                    <div class="item header">Account features launching with paid products</div>
-                    <div class="item">Active subscriptions <span class="badge">soon</span></div>
-                    <div class="item">Settings <span class="badge">soon</span></div>
-                    <div class="item">Sign in <span class="badge">soon</span></div>
+                    <div class="item header">Your SSA account</div>
+                    <a class="item" href="/signin?next=%2F">Sign in</a>
+                    <a class="item" href="/pricing">View pricing</a>
                 </div>
             </div>
         </div>
@@ -266,8 +266,8 @@
 
         <a href="https://nfl.sportsbookscienceanalytics.com" class="card live">
             <span class="card-icon">&#127944;</span>
-            <h2>NFL Mock Draft Tracker</h2>
-            <p>Aggregates mock drafts from top sources daily. Track how player stock rises and falls leading up to draft night.</p>
+            <h2>NFL Tools</h2>
+            <p>The NFL ELO model — power rankings, schedule picks, playoff forecast — plus the mock-draft aggregator tracking player stock daily.</p>
             <span class="card-badge badge-live">Live</span>
         </a>
 
@@ -297,20 +297,6 @@
         &copy; 2026 Sportsbook Science Analytics
     </footer>
 
-    <script>
-        const btn = document.getElementById('account-btn');
-        const menu = document.getElementById('account-menu');
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const open = menu.classList.toggle('open');
-            btn.setAttribute('aria-expanded', String(open));
-        });
-        document.addEventListener('click', (e) => {
-            if (!menu.contains(e.target) && e.target !== btn) {
-                menu.classList.remove('open');
-                btn.setAttribute('aria-expanded', 'false');
-            }
-        });
-    </script>
+    <script src="/static/js/account.js?v=1" defer></script>
 </body>
 </html>

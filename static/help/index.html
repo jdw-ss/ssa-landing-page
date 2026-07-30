@@ -187,19 +187,19 @@
 </head>
 <body>
     <div class="top-bar">
-        <a href="https://sportsbookscienceanalytics.com" class="brand">SSA</a>
+        <a href="/" class="brand">SSA</a>
         <div class="nav-right">
-            <a href="https://sportsbookscienceanalytics.com/help" class="active">Help</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/help" class="active">Help</a>
             <div class="account-stub">
                 <button id="account-btn" aria-haspopup="true" aria-expanded="false">
                     <span>Account</span>
                     <span style="font-size: 10px;">▾</span>
                 </button>
                 <div class="account-stub-menu" id="account-menu">
-                    <div class="item header">Account features launching with paid products</div>
-                    <div class="item">Active subscriptions <span class="badge">soon</span></div>
-                    <div class="item">Settings <span class="badge">soon</span></div>
-                    <div class="item">Sign in <span class="badge">soon</span></div>
+                    <div class="item header">Your SSA account</div>
+                    <a class="item" href="/signin?next=%2Fhelp">Sign in</a>
+                    <a class="item" href="/pricing">View pricing</a>
                 </div>
             </div>
         </div>
@@ -213,7 +213,7 @@
         <details>
             <summary>Which sports does Sportsbook Science Analytics cover?</summary>
             <div class="body">
-                <p>Six leagues each have their own subdomain — Golf, CFL, NFL, NBA, NHL, and NCAA Football. Golf and NFL have live dashboards today; CFL, NBA, NHL, and NCAAF are placeholders while the customer-facing products are built.</p>
+                <p>Six leagues each have their own subdomain — Golf, CFL, NFL, NBA, NHL, and NCAA Football (plus Soccer on the way). Golf, CFL, and NFL have live dashboards today; the rest are placeholders while the customer-facing products are built.</p>
                 <p>The home page at <a href="https://sportsbookscienceanalytics.com">sportsbookscienceanalytics.com</a> lists every league with its current status.</p>
             </div>
         </details>
@@ -221,8 +221,8 @@
         <details>
             <summary>How do I access my subscriptions?</summary>
             <div class="body">
-                <p>Account management and subscription handling are launching alongside the first paid product. For now the Account button in the nav bar is a placeholder.</p>
-                <p>If you already have access to one of the live dashboards through another channel, sign in via the Google prompt that appears when you first visit that league's site.</p>
+                <p>Sign in with Google from the Account button in the nav bar (or at <a href="/signin">/signin</a>). Your packages, renewal dates, and billing all live on <a href="/account">your account page</a>.</p>
+                <p>Packages are purchased on the <a href="/pricing">pricing page</a> — one sign-in works across every SSA league site.</p>
             </div>
         </details>
 
@@ -284,7 +284,8 @@
         <details>
             <summary>How do I cancel my subscription?</summary>
             <div class="body">
-                <p>Subscription management is launching with the first paid product. Once available, you'll be able to cancel anytime from the Account menu in the nav bar. No phone calls, no retention scripts.</p>
+                <p>From <a href="/account">your account page</a>, choose <strong>Manage billing</strong> — it opens the secure Stripe billing portal where you can cancel anytime, update your card, or download invoices. No phone calls, no retention scripts.</p>
+                <p>Canceling stops the next renewal; your access runs through the end of the period you've already paid for.</p>
             </div>
         </details>
 
@@ -309,20 +310,6 @@
         &copy; 2026 Sportsbook Science Analytics
     </footer>
 
-    <script>
-        const btn = document.getElementById('account-btn');
-        const menu = document.getElementById('account-menu');
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const open = menu.classList.toggle('open');
-            btn.setAttribute('aria-expanded', String(open));
-        });
-        document.addEventListener('click', (e) => {
-            if (!menu.contains(e.target) && e.target !== btn) {
-                menu.classList.remove('open');
-                btn.setAttribute('aria-expanded', 'false');
-            }
-        });
-    </script>
+    <script src="/static/js/account.js?v=1" defer></script>
 </body>
 </html>

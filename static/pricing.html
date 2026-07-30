@@ -176,6 +176,8 @@
         .plan h2 { font-size: 1.1rem; font-weight: 600; color: #e6edf3; margin-bottom: 6px; }
         .plan .price { font-size: 1.9rem; font-weight: 700; color: #e6edf3; margin: 8px 0 2px; letter-spacing: -0.5px; }
         .plan .price .per { font-size: 0.85rem; font-weight: 400; color: #6e7681; }
+        .plan .price.price-tba { font-size: 1.02rem; color: #8b949e; font-weight: 600; padding: 10px 0 4px; }
+        .plan button.soon:disabled { cursor: default; opacity: 0.75; }
         .plan .blurb { font-size: 0.86rem; color: #8b949e; line-height: 1.55; margin: 10px 0 18px; flex: 1; }
 
         .plan button, .plan a.btn {
@@ -310,13 +312,24 @@
             if (item.kind === "bundle") chip = '<div class="save-chip green">Save 20%</div>';
             if (item.kind === "all") chip = '<div class="save-chip purple">50% off everything</div>';
 
-            const testChip = data.billing_configured ? "" : '<span class="test-chip">preview pricing</span>';
+            // Launch gate: until Stripe is deliberately configured (or the
+            // local SHOW_PREVIEW_PRICES override is set), show no amounts and
+            // no purchase path — John is still finalizing prices.
+            const showPrices = data.show_prices;
+            const testChip = (showPrices && !data.billing_configured)
+                ? '<span class="test-chip">preview pricing</span>' : "";
+            const priceHtml = showPrices
+                ? '<div class="price">' + fmt(item.monthly_cents) +
+                  '<span class="per"> /month</span>' + testChip + "</div>"
+                : '<div class="price price-tba">Pricing announced at launch</div>';
 
             let action;
             if (held(data.held_slugs, item.slugs)) {
                 const viaAll = !data.held_slugs.includes("all") || item.kind === "all"
                     ? "✓ Active" : "✓ Included in All-Access";
                 action = '<a class="btn btn-active" href="/account">' + viaAll + "</a>";
+            } else if (!showPrices) {
+                action = '<button class="btn soon" disabled>Launching soon</button>';
             } else if (!data.signed_in) {
                 action = '<a class="btn" href="/signin?next=%2Fpricing">Sign in to subscribe</a>';
             } else {
@@ -327,8 +340,7 @@
             el.innerHTML =
                 chip +
                 "<h2>" + item.label + "</h2>" +
-                '<div class="price">' + fmt(item.monthly_cents) +
-                '<span class="per"> /month</span>' + testChip + "</div>" +
+                priceHtml +
                 '<div class="blurb">' + item.blurb + "</div>" +
                 action;
             return el;

@@ -62,6 +62,16 @@ def configured() -> bool:
     return bool(os.environ.get("STRIPE_SECRET_KEY"))
 
 
+def show_prices() -> bool:
+    """Launch gate (John, 2026-07-30): public pages show NO dollar amounts
+    until Stripe is deliberately configured with final prices. The
+    SHOW_PREVIEW_PRICES env is the local-dev override so pricing exploration
+    still renders the ladder — never set it on Cloud Run."""
+    if configured():
+        return True
+    return os.environ.get("SHOW_PREVIEW_PRICES", "").strip().lower() in {"1", "true", "yes"}
+
+
 def _stripe():
     """Lazy import + key setup. Raises a friendly 503 when unconfigured so the
     UI can say 'billing not live yet' instead of stack-tracing."""

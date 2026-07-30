@@ -31,6 +31,13 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
+try:  # Local dev: load .env (gitignored) before anything reads os.environ.
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:  # python-dotenv absent — envs come from the shell/Cloud Run
+    pass
+
 import requests
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -215,6 +222,7 @@ async def billing_catalog(user: Optional[dict] = Depends(optional_session_user))
         "held_slugs": held,
         "signed_in": user is not None,
         "billing_configured": billing.configured(),
+        "show_prices": billing.show_prices(),
     }
 
 

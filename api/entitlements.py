@@ -195,6 +195,9 @@ def get_entitlements(uid: str) -> dict:
 def write_entitlements(uid: str, slugs: list[str], packages: list[dict]) -> None:
     """Webhook-only write path. Full overwrite — the doc is always a pure
     function of the customer's current Stripe subscription list."""
+    if _is_dev():
+        logger.info("Dev mode: skipping entitlements write for %s → %s", uid, slugs)
+        return
     _firestore().collection("entitlements").document(uid).set({
         "slugs": sorted(set(slugs)),
         "packages": packages,
@@ -211,6 +214,9 @@ def get_customer(uid: str) -> Optional[dict]:
 
 
 def set_customer(uid: str, email: str, stripe_customer_id: str) -> None:
+    if _is_dev():
+        logger.info("Dev mode: skipping customer write for %s", uid)
+        return
     _firestore().collection("customers").document(uid).set({
         "email": email,
         "stripe_customer_id": stripe_customer_id,
@@ -221,6 +227,8 @@ def set_customer(uid: str, email: str, stripe_customer_id: str) -> None:
 def uid_for_stripe_customer(stripe_customer_id: str) -> Optional[str]:
     """Reverse lookup for webhook events whose subscription lacks uid metadata
     (shouldn't happen for checkouts we create, but be defensive)."""
+    if _is_dev():
+        return None
     q = (
         _firestore().collection("customers")
         .where("stripe_customer_id", "==", stripe_customer_id)

@@ -93,6 +93,17 @@ None.
 
 ## Gotchas
 
+- **Launch gate: /pricing shows NO dollar amounts and no purchase path until
+  Stripe is configured on the service.** John is finalizing prices (2026-07-30)
+  — the deployed site renders "Pricing announced at launch" + disabled
+  "Launching soon" buttons. `SHOW_PREVIEW_PRICES=1` overrides for LOCAL
+  exploration only (it's in the launch config) — never set it on Cloud Run.
+- **Stripe test keys never go on the deployed service** — a live site wired to
+  test mode grants real entitlements for 4242-card "purchases". Test checkout
+  locally: `.env` + `python3 -m scripts.stripe_bootstrap_test` + Stripe CLI
+  webhook forwarding (steps in `.env.example`). Dev mode (`DISABLE_AUTH=1`)
+  skips all Firestore writes, so local webhook tests exercise checkout +
+  webhook receipt, not the entitlement write (that's verified at launch).
 - **The session mint accepts ANY Google user — on purpose.** Don't "fix" it by
   adding an allow-list; customer authorization = Firestore entitlements,
   enforced league-side. Operator gating lives on `internal.<league>` hosts.

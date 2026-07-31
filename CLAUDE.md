@@ -131,3 +131,12 @@ None.
 - Firestore reads fail-closed: `/api/me` 503s rather than showing a paying
   customer as unsubscribed; `/api/billing/catalog` degrades to signed-out
   rendering instead.
+- **Session-cookie minting needs TWO cloud prerequisites** (found in the field
+  2026-07-31 after sign-in "worked" but every league site stayed signed out):
+  `identitytoolkit.googleapis.com` enabled on `golf-data-projects` (the calling
+  project) AND `roles/firebaseauth.admin` for the runtime SA on `ssa-auth-71d16`.
+  Without them `POST /api/session` 500s — and the CLIENT deliberately doesn't
+  block sign-in on that failure, so the popup looks successful while the
+  parent-domain cookie never exists. Both are in `./deploy.sh bootstrap` now.
+  Diagnose via: apex logs "Failed to mint session cookie", league logs
+  `/api/session/exchange` → 401.

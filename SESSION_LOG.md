@@ -7,6 +7,18 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
+## 2026-07-31 (evening) — ATS scrubbed from customer-facing copy
+
+**Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit
+
+John's call: ATS track records read as "the model loses money" to customers who
+don't know the real bar is beating the close, so ATS is now internal-only
+portfolio-wide. Here that meant one line: the CFL card on the homepage no
+longer advertises "ATS performance". The league repos (cfl/ncaaf/nfl-elo) are
+dropping their public ATS tabs + `/api/public/ats` routes in the same sweep.
+
+---
+
 
 ## 2026-07-30 (later) — Hub DEPLOYED + Stripe test-mode E2E + launch gate
 

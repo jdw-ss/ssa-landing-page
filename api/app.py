@@ -57,7 +57,7 @@ from api.auth import (
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="SSA Hub", docs_url=None, redoc_url=None)
+app = FastAPI(title="SSA Hub", docs_url=None, redoc_url=None, openapi_url=None)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -181,7 +181,13 @@ async def exchange_session(
 
     if isinstance(custom_token, bytes):
         custom_token = custom_token.decode("ascii")
-    return {"customToken": custom_token}
+    # This response IS a credential: a replayed response would sign one customer
+    # in as another. Every league service already sets these; the apex is the
+    # customer path and was missed. (Portfolio hardening 2026-08-07.)
+    return JSONResponse(
+        {"customToken": custom_token},
+        headers={"Cache-Control": "private, no-store", "Vary": "Cookie"},
+    )
 
 
 # ── Customer profile + entitlements ──────────────────────────────────────────
@@ -309,14 +315,99 @@ async def account_page():
 
 @app.get("/robots.txt", include_in_schema=False)
 async def robots():
+    # LAUNCH GATE: static/robots.txt is `Disallow: /` until the paywall goes
+    # live. Deliberately left untouched by the SEO pass — flipping it (plus the
+    # noindex metas in static/index.html + static/pricing.html) is the owner's
+    # single launch action. At that moment also add:
+    #     Sitemap: https://sportsbookscienceanalytics.com/sitemap.xml
     return FileResponse(STATIC_DIR / "robots.txt", media_type="text/plain")
+
+
+# ── sitemap.xml ──────────────────────────────────────────────────────────────
+#
+# The apex is the portfolio's front door, so it serves the SITEMAP INDEX for
+# every public host. /sitemap.xml is the index (one <sitemap> entry per league
+# host, each service serving its own host's URLs); /sitemap-portfolio.xml is a
+# flat urlset of every public URL, so the whole portfolio stays discoverable
+# from one file even if an individual league route hasn't been redeployed yet.
+# Both are live now and inert while robots.txt disallows — nothing to flip here
+# at launch.
+_LEAGUE_SITEMAPS = (
+    "https://sportsbookscienceanalytics.com/sitemap-portfolio.xml",
+    "https://nfl.sportsbookscienceanalytics.com/sitemap.xml",
+    "https://ncaaf.sportsbookscienceanalytics.com/sitemap.xml",
+    "https://cfl.sportsbookscienceanalytics.com/sitemap.xml",
+    "https://nba.sportsbookscienceanalytics.com/sitemap.xml",
+    "https://nhl.sportsbookscienceanalytics.com/sitemap.xml",
+    "https://soccer.sportsbookscienceanalytics.com/sitemap.xml",
+    "https://golf.sportsbookscienceanalytics.com/sitemap.xml",
+)
+
+_PORTFOLIO_URLS = (
+    "https://sportsbookscienceanalytics.com/",
+    "https://sportsbookscienceanalytics.com/pricing",
+    "https://sportsbookscienceanalytics.com/help",
+    "https://nfl.sportsbookscienceanalytics.com/",
+    "https://nfl.sportsbookscienceanalytics.com/elomodel",
+    "https://nfl.sportsbookscienceanalytics.com/mockdrafts",
+    "https://ncaaf.sportsbookscienceanalytics.com/",
+    "https://cfl.sportsbookscienceanalytics.com/",
+    "https://nba.sportsbookscienceanalytics.com/",
+    "https://nhl.sportsbookscienceanalytics.com/",
+    "https://soccer.sportsbookscienceanalytics.com/",
+    "https://soccer.sportsbookscienceanalytics.com/epl",
+    "https://golf.sportsbookscienceanalytics.com/",
+)
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_index():
+    entries = "".join(
+        f"  <sitemap><loc>{u}</loc></sitemap>\n" for u in _LEAGUE_SITEMAPS
+    )
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{entries}"
+        "</sitemapindex>\n"
+    )
+    return Response(content=body, media_type="application/xml")
+
+
+@app.get("/sitemap-portfolio.xml", include_in_schema=False)
+async def sitemap_portfolio():
+    """Every public URL across the portfolio in one urlset. Cross-host entries
+    require all hosts to be verified in the same Search Console account — they
+    are, all being subdomains the owner controls."""
+    locs = "".join(f"  <url><loc>{u}</loc></url>\n" for u in _PORTFOLIO_URLS)
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{locs}"
+        "</urlset>\n"
+    )
+    return Response(content=body, media_type="application/xml")
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
 async def serve_rest(full_path: str):
     """Real static files pass through; anything else falls back to the league
     directory (marketing-site behavior) rather than a bare 404."""
-    file_path = STATIC_DIR / full_path
-    if file_path.is_file():
+    # Unknown `/api/...` paths must 404, not fall through to the HTML shell — a
+    # 200-with-HTML soft-404 misleads clients and lets crawlers index junk API
+    # URLs. (Portfolio hardening 2026-08-07.)
+    if full_path == "api" or full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found")
+    # Path-traversal containment: uvicorn percent-decodes the ASGI path, so a
+    # crafted `%2e%2e` escapes STATIC_DIR at the OS layer and would serve the
+    # apex's api/ source — billing, entitlements, the Stripe-key-bearing app —
+    # to anonymous visitors. Resolve and require the result to stay inside
+    # STATIC_DIR. Ports cfl-elo-dashboard/api/app.py.
+    static_root = STATIC_DIR.resolve()
+    try:
+        file_path = (static_root / full_path).resolve()
+    except (OSError, ValueError):
+        file_path = None
+    if file_path is not None and file_path.is_relative_to(static_root) and file_path.is_file():
         return FileResponse(file_path)
     return _page("index.html")

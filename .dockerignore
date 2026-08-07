@@ -1,0 +1,24 @@
+# The Dockerfile only COPYs api/ + static/, but keep the image build honest
+# regardless of future Dockerfile edits. Keep in sync with .gcloudignore.
+
+.git/
+
+# Secrets — never ship these
+.env
+.env.*
+!.env.example
+service-account.json
+*-sa-key.json
+credentials.json
+*.pem
+*.key
+
+# Local tooling / noise
+.claude/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.log
+.DS_Store

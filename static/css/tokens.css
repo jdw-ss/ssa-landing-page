@@ -1,0 +1,31 @@
+/* SSA design tokens — the shared colour + type contract for every SSA surface.
+   Canonical source: jdw-claude-config/workspace/docs/DESIGN_SYSTEM.md §1.
+   Values are WCAG-AA verified; copy this block verbatim, never retune it here.
+   Green and red are DATA semantics only — blue and purple carry all chrome. */
+:root {
+  /* ── Surfaces ────────────────────────────────────────────────────────── */
+  --bg:            #0b0f16;  /* page background                            */
+  --bg-elev:       #161b22;  /* cards, nav bar, table headers              */
+  --bg-row:        #1d2129;  /* table rows, inset panels                   */
+  --border:        #2a2f3a;
+  --border-subtle: #22262f;
+
+  /* ── Text ────────────────────────────────────────────────────────────── */
+  --text:          #e8eaef;  /* headings + body                            */
+  --text-dim:      #9aa0aa;  /* secondary                                  */
+  --text-muted:    #8b929d;  /* captions, timestamps, footnotes            */
+
+  /* ── Brand / chrome ──────────────────────────────────────────────────── */
+  --accent:        #58a6ff;  /* THE brand accent. All chrome.              */
+  --accent-dim:    #2f6fd6;  /* hover + pressed FILLS ONLY — never text    */
+  --accent-2:      #a78bfa;  /* secondary highlight (All-Access, badges)   */
+
+  /* ── Data semantics — NEVER used for chrome ──────────────────────────── */
+  --good:          #3fb950;  /* win, cover, +EV, positive delta            */
+  --bad:           #f85149;  /* loss, no-cover, -EV, negative delta        */
+  --warn:          #e6c26b;  /* push, stale data, caution                  */
+
+  /* ── Type ────────────────────────────────────────────────────────────── */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                 Roboto, sans-serif;
+}

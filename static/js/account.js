@@ -21,16 +21,16 @@
     // don't all need editing when the widget evolves.
     const css = document.createElement("style");
     css.textContent = [
-        ".account-stub-menu .item.action { cursor: pointer; color: #c9d1d9; }",
-        ".account-stub-menu .item.action:hover { background: #21262d; }",
+        ".account-stub-menu .item.action { cursor: pointer; color: var(--text-dim); }",
+        ".account-stub-menu .item.action:hover { background: var(--border-subtle); }",
         ".account-stub-menu a.item { text-decoration: none; display: flex; }",
-        ".account-stub-menu a.item:hover { background: #21262d; color: #c9d1d9; }",
+        ".account-stub-menu a.item:hover { background: var(--border-subtle); color: var(--text-dim); }",
         ".acct-btn-avatar { width: 20px; height: 20px; border-radius: 50%; " +
-            "background: linear-gradient(135deg, #58a6ff, #4ade80); color: #0a0e14; " +
+            "background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--bg); " +
             "font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; " +
             "justify-content: center; overflow: hidden; }",
         ".acct-btn-avatar img { width: 100%; height: 100%; object-fit: cover; }",
-        ".account-stub-menu .item.sub { font-size: 12px; color: #6e7681; }",
+        ".account-stub-menu .item.sub { font-size: 12px; color: var(--text-muted); }",
     ].join("\n");
     document.head.appendChild(css);
 

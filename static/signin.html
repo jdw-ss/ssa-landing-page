@@ -6,7 +6,9 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Sign in — Sportsbook Science Analytics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=1">
     <script>
         // The apex is the ONE auth origin (FIREBASE_AUTH_DOMAIN) — canonicalize
         // www → apex before any auth code runs so the OAuth handshake origin
@@ -19,9 +21,9 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0a0e14;
-            color: #c9d1d9;
+            font-family: var(--font-family);
+            background: var(--bg);
+            color: var(--text-dim);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -31,8 +33,8 @@
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background:
-                radial-gradient(ellipse at 20% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 20%, rgba(74, 222, 128, 0.03) 0%, transparent 50%);
+                radial-gradient(ellipse at 20% 50%, rgba(88, 166, 255, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(167, 139, 250, 0.03) 0%, transparent 50%);
             z-index: -1;
         }
         .top-bar {
@@ -40,12 +42,12 @@
             align-items: center;
             justify-content: space-between;
             padding: 16px 32px;
-            border-bottom: 1px solid #21262d;
+            border-bottom: 1px solid var(--border-subtle);
         }
-        .brand { font-size: 14px; font-weight: 600; color: #c9d1d9; letter-spacing: -0.3px; text-decoration: none; }
+        .brand { font-size: 14px; font-weight: 600; color: var(--text-dim); letter-spacing: -0.3px; text-decoration: none; }
         .nav-right { display: flex; align-items: center; gap: 20px; }
-        .nav-right a { color: #8b949e; text-decoration: none; font-size: 13px; font-weight: 500; }
-        .nav-right a:hover { color: #c9d1d9; }
+        .nav-right a { color: var(--text-muted); text-decoration: none; font-size: 13px; font-weight: 500; }
+        .nav-right a:hover { color: var(--text-dim); }
 
         main {
             flex: 1;
@@ -57,8 +59,8 @@
         .card {
             width: 100%;
             max-width: 420px;
-            background: linear-gradient(135deg, #161b22 0%, #1a1f27 100%);
-            border: 1px solid #30363d;
+            background: var(--bg-elev);
+            border: 1px solid var(--border);
             border-radius: 14px;
             padding: 40px 36px 32px;
             text-align: center;
@@ -67,14 +69,16 @@
             font-size: 1.7rem;
             font-weight: 700;
             letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #c9d1d9 0%, #58a6ff 50%, #4ade80 100%);
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 50%, var(--accent-2) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             margin-bottom: 10px;
         }
-        .card .lede { color: #8b949e; font-size: 0.92rem; line-height: 1.55; margin-bottom: 28px; }
+        .card .lede { color: var(--text-muted); font-size: 0.92rem; line-height: 1.55; margin-bottom: 28px; }
 
+        /* Google's branding rules fix the "Sign in with Google" button's white
+           face and #1f1f1f label — deliberately NOT tokenised. */
         .google-btn {
             width: 100%;
             display: flex;
@@ -99,16 +103,16 @@
         .fineprint {
             margin-top: 22px;
             padding-top: 18px;
-            border-top: 1px solid #21262d;
-            color: #6e7681;
+            border-top: 1px solid var(--border-subtle);
+            color: var(--text-muted);
             font-size: 12.5px;
             line-height: 1.6;
         }
-        .fineprint a { color: #58a6ff; text-decoration: none; }
+        .fineprint a { color: var(--accent); text-decoration: none; }
 
         .signedin-email {
             font-size: 1rem;
-            color: #e6edf3;
+            color: var(--text);
             font-weight: 600;
             margin-bottom: 18px;
             overflow-wrap: anywhere;
@@ -116,8 +120,8 @@
         .cta {
             display: block;
             width: 100%;
-            background: linear-gradient(135deg, #58a6ff 0%, #4ade80 100%);
-            color: #0a0e14;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: var(--bg);
             border: none;
             border-radius: 8px;
             padding: 12px 16px;
@@ -131,8 +135,8 @@
         .cta:hover { filter: brightness(1.08); }
         .ghost {
             background: transparent;
-            border: 1px solid #30363d;
-            color: #8b949e;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
             border-radius: 8px;
             padding: 10px 16px;
             font: inherit;
@@ -140,12 +144,12 @@
             cursor: pointer;
             width: 100%;
         }
-        .ghost:hover { border-color: #58a6ff; color: #c9d1d9; }
+        .ghost:hover { border-color: var(--accent); color: var(--text-dim); }
 
         .error-box {
             background: rgba(248, 81, 73, 0.1);
             border: 1px solid rgba(248, 81, 73, 0.4);
-            color: #f85149;
+            color: var(--bad);
             border-radius: 8px;
             padding: 10px 14px;
             font-size: 13px;
@@ -155,10 +159,10 @@
         }
         .error-box.show { display: block; }
 
-        .loading { color: #6e7681; font-size: 14px; padding: 12px 0; }
+        .loading { color: var(--text-muted); font-size: 14px; padding: 12px 0; }
         .hidden { display: none; }
 
-        footer { text-align: center; padding: 24px; color: #484f58; font-size: 0.8rem; }
+        footer { text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.8rem; }
     </style>
 </head>
 <body>

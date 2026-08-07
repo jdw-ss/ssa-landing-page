@@ -7,6 +7,58 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
+## 2026-08-07 — Launch prep: critical traversal fix, design-system unification, SEO pass
+
+**Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit
+
+**Here specifically.** SECURITY (critical): the apex catch-all was
+live-exploitable for unauthenticated arbitrary file read — `..%2fapi%2fbilling.py`
+returned 9,401 bytes of source to anonymous visitors. Google's edge normalizes
+`%2e%2e/` but NOT `..%2f`, so any probe testing only the former reports a false
+all-clear. Containment + `api/` hard-404 + `openapi_url=None` + `no-store` on
+`/api/session/exchange` (that response IS a credential). Deployed and verified
+against production. First tests in this repo (14). Added `.gcloudignore` +
+`.dockerignore` — `.env` holds Stripe secrets and was protected only by gcloud's
+implicit `.gitignore` fallback.
+
+Worth recording precisely: NO Stripe secret exists in any of the ten GCP
+projects, and the live service carries only Firebase env vars. So the disclosure
+was source code, NOT credentials — the paywall bootstrap has simply never been
+run, which is also why the Stripe webhook isn't findable in the dashboard.
+
+Design: this was the only surface with ZERO CSS variables (~199 literals across
+5 inline `<style>` blocks). Now has `static/css/tokens.css`. The brand gradient
+and primary button were recast off green onto blue→purple. SEO: keyword title,
+description, OG/Twitter, canonical, Organization+WebSite JSON-LD, FAQPage on
+/help, a sports-row nav, sitemap index, NCAAF card flipped to Live and the
+missing Soccer card added.
+
+**The launch gate is UNTOUCHED and verified**: `static/robots.txt` is still
+byte-identical `Disallow: /`, and index/pricing/signin/account all still carry
+`noindex, nofollow`. Flipping it is a deliberate separate step.
+
+Portfolio-wide launch-prep pass covering three workstreams at once (security,
+SEO, design system). Cross-repo context lives in the workspace docs: the new
+`docs/DESIGN_SYSTEM.md` contract and two new lessons in
+`ANALYTICS_PROJECT_GUIDELINES.md`.
+
+**Design system.** Adopted the one shared token block, replacing three competing
+palettes. Green/red are now DATA-ONLY; all chrome resolves through
+`var(--accent)` (#58a6ff), with per-league identity surviving only as
+`--league-tint`. Inter everywhere. Filled controls take `color: var(--bg)` —
+white on the brighter accent measures 2.53:1, a WCAG failure the old darker
+league accents had masked; hover states use `filter: brightness(1.12)` (9.01:1)
+rather than the `--accent-dim` fill, which would drop a dark label to 3.99:1.
+
+**How this was verified.** An adversarial QA pass (49 agents, every finding
+independently refuted before it counted) produced 40 verified defects, then a
+remediation pass closed them. Two traps worth remembering: a grep for
+`color:#fff` misses `color: white`, and CSS fails SILENTLY — an undefined
+`var()` is simply dropped, so only a browser (or a used-vs-defined sweep across
+css+html+js) proves a rename landed.
+
+---
+
 ## 2026-07-31 (evening) — ATS scrubbed from customer-facing copy
 
 **Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit

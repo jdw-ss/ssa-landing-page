@@ -238,6 +238,25 @@ async def billing_checkout(body: _CheckoutBody, user: dict = Depends(require_ses
     return {"url": url}
 
 
+@app.get("/api/billing/change-preview")
+async def billing_change_preview(sku: str, user: dict = Depends(require_session_user)):
+    """What buying `sku` would do: an ordinary new subscription, or a prorated
+    upgrade that replaces something the customer already has. Read-only — the
+    pricing page calls this to label the button and show the real amount before
+    anyone is charged."""
+    plan = await asyncio.to_thread(billing.plan_change_preview, user, sku)
+    return JSONResponse(plan, headers={"Cache-Control": "private, no-store"})
+
+
+@app.post("/api/billing/change")
+async def billing_change(body: _CheckoutBody, user: dict = Depends(require_session_user)):
+    """Swap the customer onto `sku` in place, prorated, cancelling whatever it
+    supersedes. Used instead of Checkout when the purchase is an upgrade, so the
+    old package stops billing rather than running alongside the new one."""
+    result = await asyncio.to_thread(billing.apply_plan_change, user, body.sku)
+    return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
+
+
 @app.post("/api/billing/portal")
 async def billing_portal(user: dict = Depends(require_session_user)):
     url = await asyncio.to_thread(billing.create_portal_session, user)

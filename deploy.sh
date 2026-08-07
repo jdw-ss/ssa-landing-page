@@ -51,17 +51,34 @@ if [[ "${1:-}" == "bootstrap" ]]; then
      league service: gcloud run services describe cfl-dashboard …)
 
 4. Service env vars (first deploy only — they persist afterwards):
+   ⚠ ALWAYS --update-env-vars, NEVER --set-env-vars. --set-env-vars REPLACES the
+     whole env set, so step 5 below would delete everything this step just wrote
+     and customer sign-in would break with no error anywhere.
    gcloud run services update ssa-landing --region=us-east1 --project=golf-data-projects \
-     --set-env-vars=FIREBASE_PROJECT_ID=ssa-auth-71d16,FIREBASE_AUTH_DOMAIN=sportsbookscienceanalytics.com,FIREBASE_API_KEY=…,FIREBASE_APP_ID=…,FIRESTORE_PROJECT_ID=ssa-auth-71d16,PUBLIC_BASE_URL=https://sportsbookscienceanalytics.com
+     --update-env-vars=FIREBASE_PROJECT_ID=ssa-auth-71d16,FIREBASE_AUTH_DOMAIN=sportsbookscienceanalytics.com,FIREBASE_API_KEY=…,FIREBASE_APP_ID=…,FIRESTORE_PROJECT_ID=ssa-auth-71d16,PUBLIC_BASE_URL=https://sportsbookscienceanalytics.com
 
 5. Stripe (test mode first):
    - Create 6 Products with monthly Prices (SKUs: sport_cfl, sport_ncaaf,
      sport_nfl, sport_golf, bundle_football, all_access).
    - Secret Manager: stripe-secret-key + stripe-webhook-secret in golf-data-projects,
      then bind:
+     ⚠ --update-env-vars here too (see step 4) or this WIPES the Firebase vars.
      gcloud run services update ssa-landing --region=us-east1 --project=golf-data-projects \
        --set-secrets=STRIPE_SECRET_KEY=stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest \
-       --set-env-vars=STRIPE_PRICE_SPORT_CFL=price_…,STRIPE_PRICE_SPORT_NCAAF=price_…,STRIPE_PRICE_SPORT_NFL=price_…,STRIPE_PRICE_SPORT_GOLF=price_…,STRIPE_PRICE_BUNDLE_FOOTBALL=price_…,STRIPE_PRICE_ALL_ACCESS=price_…
+       --update-env-vars=STRIPE_PRICE_SPORT_CFL=price_…,STRIPE_PRICE_SPORT_NCAAF=price_…,STRIPE_PRICE_SPORT_NFL=price_…,STRIPE_PRICE_SPORT_GOLF=price_…,STRIPE_PRICE_BUNDLE_FOOTBALL=price_…,STRIPE_PRICE_ALL_ACCESS=price_…
+   - Also set the DISPLAY prices, or /pricing advertises the $9.99 placeholder
+     while Stripe charges the real amount:
+       --update-env-vars=PRICE_DISPLAY_SPORT_CFL=<cents>,… (one per sellable SKU)
+   - CHANGING A PRICE LATER: Stripe Prices are immutable, so a new amount means a
+     NEW price id while existing subscriptions keep the old one. PREPEND the new
+     id, keep the old — STRIPE_PRICE_<SKU> accepts a comma-separated list and the
+     first entry is what new checkouts use:
+       --update-env-vars=STRIPE_PRICE_SPORT_NCAAF=price_NEW,price_OLD
+     Dropping the old id makes the next webhook for a legacy customer refuse to
+     write (500, Stripe retries) rather than silently revoking them.
+   - Friend/discount codes: use Stripe COUPONS + promotion codes, never a second
+     Price. allow_promotion_codes is already on in create_checkout_session, and a
+     coupon keeps the same price id so none of the above applies.
    - Stripe webhook endpoint: https://sportsbookscienceanalytics.com/api/billing/webhook
      events: checkout.session.completed, customer.subscription.created/updated/deleted
 EOF
@@ -93,7 +110,14 @@ echo
 echo "── Config sanity (warn-only) ──"
 ENVS=$(gcloud run services describe "${SERVICE}" --region="${REGION}" --project="${PROJECT}" \
   --format='value(spec.template.spec.containers[0].env)')
-for key in FIREBASE_API_KEY FIREBASE_PROJECT_ID STRIPE_SECRET_KEY; do
+# The STRIPE_PRICE_* vars are checked too: a --set-env-vars anywhere in the
+# runbook drops them, and the next webhook per customer then hits an
+# unresolvable price. That now refuses to write (500 + Stripe retry) instead of
+# silently revoking, but the deploy should still say so out loud.
+for key in FIREBASE_API_KEY FIREBASE_PROJECT_ID FIREBASE_AUTH_DOMAIN FIREBASE_APP_ID \
+           FIRESTORE_PROJECT_ID PUBLIC_BASE_URL STRIPE_SECRET_KEY \
+           STRIPE_PRICE_SPORT_CFL STRIPE_PRICE_SPORT_NCAAF STRIPE_PRICE_SPORT_NFL \
+           STRIPE_PRICE_SPORT_GOLF STRIPE_PRICE_BUNDLE_FOOTBALL STRIPE_PRICE_ALL_ACCESS; do
   if [[ "${ENVS}" != *"${key}"* ]]; then
     echo "  ⚠ ${key} not set on the service — sign-in/billing degraded. See ./deploy.sh bootstrap"
   fi

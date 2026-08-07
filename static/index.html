@@ -26,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=1">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=2">
 
     <script type="application/ld+json">
     {
@@ -129,8 +129,8 @@
             box-shadow: 0 8px 30px rgba(88, 166, 255, 0.1);
         }
 
-        /* Hover is chrome, so live cards share the accent glow — the green
-           "Live" badge is what carries the status. */
+        /* Hover is chrome, so live cards share the accent glow — the badge text
+           is what carries the status. */
         .card.live:hover { border-color: var(--accent); box-shadow: 0 8px 30px rgba(88, 166, 255, 0.1); }
 
         .card-icon {
@@ -163,14 +163,18 @@
             border-radius: 20px;
         }
 
+        /* Availability labels, not model output — so they take brand chrome, not
+           the data greens/reds. Matches the identical .card-badge on soccer-hub
+           and the NFL landing, which were already blue; the apex was the only
+           surface rendering the same "Live" pill green. */
         .badge-live {
-            background: rgba(63, 185, 80, 0.15);
-            color: var(--good);
+            background: var(--accent-wash);
+            color: var(--accent);
         }
 
         .badge-soon {
-            background: rgba(167, 139, 250, 0.15);
-            color: var(--accent-2);
+            background: var(--border-subtle);
+            color: var(--text-muted);
         }
 
         .badge-seasonal {

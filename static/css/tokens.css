@@ -19,6 +19,8 @@
   --accent:        #58a6ff;  /* THE brand accent. All chrome.              */
   --accent-dim:    #2f6fd6;  /* hover + pressed FILLS ONLY — never text    */
   --accent-2:      #a78bfa;  /* secondary highlight (All-Access, badges)   */
+  --accent-wash:   rgba(88, 166, 255, 0.14);  /* translucent accent fills  */
+  --text-disabled: #6b727d;  /* recessive but legible — NOT --text-muted   */
 
   /* ── Data semantics — NEVER used for chrome ──────────────────────────── */
   --good:          #3fb950;  /* win, cover, +EV, positive delta            */

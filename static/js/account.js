@@ -150,7 +150,11 @@
         if (window.Auth) return Promise.resolve();
         return new Promise((resolve, reject) => {
             const s = document.createElement("script");
-            s.src = (ON_APEX ? "" : "") + "/static/js/auth.js?v=2";
+            // ?v=lazy is a STABLE cache-buster, distinct from the per-page
+            // static tags: this file is vendored byte-identically to all 9
+            // surfaces, so it cannot carry any repo's own ?v number. The
+            // 300s static TTL bounds how stale the lazy-loaded copy can be.
+            s.src = (ON_APEX ? "" : "") + "/static/js/auth.js?v=lazy";
             s.onload = resolve;
             s.onerror = reject;
             document.head.appendChild(s);

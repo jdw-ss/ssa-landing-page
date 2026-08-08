@@ -20,6 +20,17 @@
 //   Auth.signOut()        — sign out + cookie clear
 //   Auth.disabled         — true when DISABLE_AUTH=1 (local dev stub user)
 //
+// Cross-site auth STATE cookie (`ssa_auth`, parent-domain, JS-readable,
+// never carries identity): "1" = the user's last explicit action anywhere on
+// SSA was sign-IN (or a session recovery succeeded); "0" = explicit sign-OUT.
+// Every surface's bootstrap consults it FIRST: a "0" with a locally persisted
+// Firebase user means sign-out happened on ANOTHER origin and this origin's
+// per-origin persistence survived it — purge it and render signed out instead
+// of resurrecting the session. The apex self-heal (re-minting the parent
+// `__session` cookie from surviving persistence) is gated on the value not
+// being "0" — un-gated, it was signing the whole family back in after every
+// sign-out (John repro'd 2026-08-08).
+//
 // Idempotent under double-load: pages with their own auth bootstrap (account,
 // signin) AND the account widget can both inject this script before either
 // copy executes; re-executing must keep the first façade, or callers awaiting
@@ -51,6 +62,19 @@ window.Auth = window.Auth || (() => {
     let _readyPromise = null;
     let _disabled = false;
 
+    // ssa_auth state cookie — see header. Domain-scoped writes silently no-op
+    // on localhost (Domain mismatch) and plain http (Secure), so local dev
+    // always sees "absent" and takes the legacy paths.
+    const _readState = () => {
+        const m = document.cookie.match(/(?:^|;\s*)ssa_auth=([^;]*)/);
+        return m ? m[1] : null;
+    };
+    const _setState = (v) => {
+        document.cookie = "ssa_auth=" + v +
+            "; Domain=.sportsbookscienceanalytics.com; Path=/" +
+            "; Max-Age=2592000; Secure; SameSite=Lax";
+    };
+
     async function _bootstrap() {
         _fbCfg = await fetch(R() + "/api/firebase-config").then(r => r.json());
         if (_fbCfg.disableAuth) {
@@ -74,6 +98,11 @@ window.Auth = window.Auth || (() => {
         _signInWithCustomToken = authMod.signInWithCustomToken;
         _signOut = authMod.signOut;
 
+        // Consult the state cookie BEFORE any recovery attempt: "0" (explicit
+        // sign-out somewhere on SSA) vetoes the exchange AND the self-heal —
+        // both are session-resurrection paths.
+        let _signedOutState = _readState() === "0";
+
         // Try to recover a parent-domain session before deciding "signed
         // out". If the cookie is valid, signInWithCustomToken below
         // triggers onAuthStateChanged with the recovered user; if not,
@@ -81,28 +110,35 @@ window.Auth = window.Auth || (() => {
         // _cookieOk tracks whether this page load proved the parent-domain
         // cookie is alive (exchange succeeded, or we just re-minted it).
         let _cookieOk = false;
-        try {
-            const resp = await fetch(R() + "/api/session/exchange", { credentials: "same-origin" });
-            if (resp.ok) {
-                const { customToken } = await resp.json();
-                if (customToken) {
-                    await _signInWithCustomToken(_fbAuth, customToken);
-                    _cookieOk = true;
+        if (!_signedOutState) {
+            try {
+                const resp = await fetch(R() + "/api/session/exchange", { credentials: "same-origin" });
+                if (resp.ok) {
+                    const { customToken } = await resp.json();
+                    if (customToken) {
+                        await _signInWithCustomToken(_fbAuth, customToken);
+                        _cookieOk = true;
+                        _setState("1");
+                    }
                 }
+            } catch (e) {
+                console.warn("Session recovery failed:", e);
             }
-        } catch (e) {
-            console.warn("Session recovery failed:", e);
         }
 
         // Complete a pending mobile redirect sign-in (signInWithRedirect). When the
         // user returns from Google, getRedirectResult resolves with the user and we
         // persist the parent-domain cookie — the step the popup path does in
         // signIn(). The onIdTokenChanged listener below then sees the signed-in user.
+        // This runs even under a "0" state: returning from the Google redirect IS
+        // an explicit sign-in, which overrides a stale sign-out marker.
         try {
             const redirectResult = await _getRedirectResult(_fbAuth);
             if (redirectResult && redirectResult.user) {
                 await _persistSession(await redirectResult.user.getIdToken());
                 _cookieOk = true;
+                _signedOutState = false;
+                _setState("1");
             }
         } catch (e) {
             console.warn("Redirect sign-in completion failed:", e);
@@ -125,6 +161,26 @@ window.Auth = window.Auth || (() => {
                 }
                 if (!_resolvedReady) {
                     _resolvedReady = true;
+                    // Explicit sign-out marker + a locally persisted user:
+                    // sign-out happened on another SSA origin and this
+                    // origin's per-origin Firebase persistence survived it.
+                    // Purge it and render signed out — and specifically do
+                    // NOT fall through to the self-heal below, which would
+                    // re-mint the parent cookie from the surviving persistence
+                    // and sign the whole family back in.
+                    if (user && _signedOutState) {
+                        try { await _signOut(_fbAuth); } catch (e) {
+                            console.warn("Stale-session purge failed:", e);
+                        }
+                        _user = null;
+                        _idToken = null;
+                        _ready = true;
+                        resolve();
+                        return;
+                    }
+                    // Legacy/migration: signed in from before the state cookie
+                    // existed — record the intent so other surfaces see it.
+                    if (user && _readState() === null) _setState("1");
                     // Self-heal the parent-domain cookie: Firebase local
                     // persistence can hold a signed-in user here (apex renders
                     // signed in) while the `__session` cookie is missing,
@@ -133,7 +189,9 @@ window.Auth = window.Auth || (() => {
                     // a manual re-sign-in. If we have a user but the exchange
                     // above did NOT prove the cookie (401/absent), re-mint it
                     // now. Runs at most once per page load; _persistSession is
-                    // best-effort and never re-triggers this path.
+                    // best-effort and never re-triggers this path. Gated on
+                    // the state cookie not being "0" (the purge branch above
+                    // returns first).
                     if (user && !_cookieOk) {
                         _cookieOk = true;
                         await _persistSession(_idToken);
@@ -179,6 +237,7 @@ window.Auth = window.Auth || (() => {
             const result = await _signInWithPopup(_fbAuth, _fbProvider);
             _user = result.user;
             _idToken = await _user.getIdToken();
+            _setState("1");
             await _persistSession(_idToken);
         } catch (e) {
             if (e && _REDIRECT_FALLBACK.has(e.code)) {
@@ -191,6 +250,10 @@ window.Auth = window.Auth || (() => {
 
     async function signOutFn() {
         if (_disabled || !_fbAuth) return;
+        // Record the family-wide intent FIRST — if anything below fails, the
+        // other surfaces must still see "0" and purge their surviving
+        // per-origin persistence instead of resurrecting the session.
+        _setState("0");
         await _signOut(_fbAuth);
         _user = null;
         _idToken = null;

@@ -7,6 +7,46 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
+## 2026-08-08 (night) — Cross-site auth state: `ssa_auth` cookie + silent sign-in mode
+
+**Agent**: claude-fable-5 subagent | **Branch**: `main` | **Commits**: 1
+
+Seamless-recovery wave 2 (spec: SEAMLESS_RECOVERY_SPEC, John greenlit). One
+mechanism fixes two live bugs: (a) sign-out didn't propagate — per-origin
+Firebase persistence survives the parent-cookie DELETE, and this repo's own
+self-heal (evening entry below) then RE-MINTED the cookie from surviving
+persistence, signing the whole family back in; (b) a league page with a dead
+cookie stayed signed out until an apex visit.
+
+**`static/js/auth.js`** — new parent-domain state cookie `ssa_auth`
+(JS-readable, `Domain=.sportsbookscienceanalytics.com`, 30d, Secure,
+SameSite=Lax; values `"1"` intended-signed-in / `"0"` explicit-signed-out;
+never carries identity). Bootstrap consults it FIRST: `"0"` vetoes the
+exchange AND the self-heal, and a `"0"` + persisted user → local firebase
+signOut (purge) + render signed out. Absent + user → legacy migration, set
+`"1"`. Set `"1"` on exchange success, redirect completion, popup success;
+signOut() sets `"0"` BEFORE the DELETE + firebase signOut. Redirect
+completion still runs under `"0"` (returning from Google IS a sign-in).
+
+**`static/signin.html`** — silent mode (`?silent=1&next=<url>`): card hidden,
+quiet "One moment…" line, `next` validated (absolute https on
+SSA/*.SSA only — open-redirect guard, foreign values fall back), NEVER a
+popup. Signed in → bootstrap's self-heal already re-minted →
+`location.replace(next)`. Not signed in → the `"1"` state was stale → delete
+the cookie (absent ≠ `"0"`: no purge of other origins, but league pages stop
+bouncing) → `replace(next)`. League auth.js bounces here at most once per
+10 min (sessionStorage guard, league side).
+
+**`static/js/account.js`** — loadAuth constant → `auth.js?v=lazy` (stable
+cache-buster; a vendored shared file can't carry per-repo `?v` numbers; the
+300s static TTL bounds staleness). The file is now byte-identical across ALL
+9 surfaces again (md5 207342751fe40965e4e1bcaf7fd52f8e) — the `?v=2`/`?v=1`
+apex divergence from the evening entry is dead.
+
+Versions: auth.js v2→v3 (signin + account inline loaders), account.js v4→v5
+(all five pages). tokens.css `.account-stub > a` verified present (no
+change). Tests 35/35. NOT deployed — John reviews diffs first.
+
 ## 2026-08-08 (evening) — Apex header unified + parent-cookie self-heal
 
 **Agent**: claude-fable-5 (subagent) | **Branch**: `main` | **Commits**: 2

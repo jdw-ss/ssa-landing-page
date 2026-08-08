@@ -184,7 +184,12 @@
     </nav>
 
     <main>
-        <div class="card">
+        <!-- Silent mode (?silent=1&next=…): a league site bounced an
+             apparently-signed-in visitor here so bootstrap's self-heal can
+             re-mint the parent cookie. No card, no popup — just this line
+             for the moment before location.replace(next). -->
+        <div id="silent-wait" class="loading hidden">One moment&hellip;</div>
+        <div class="card" id="signin-card">
             <h1>Sign in to SSA</h1>
             <p class="lede">One account across every league site — CFL, NCAAF, NFL, Golf and everything still to come.</p>
 
@@ -215,12 +220,13 @@
 
     <footer>&copy; 2026 Sportsbook Science Analytics</footer>
 
-    <script src="/static/js/account.js?v=4" defer></script>
+    <script src="/static/js/account.js?v=5" defer></script>
     <script>
         // Only same-site destinations — a foreign ?next= must never turn this
         // page into an open redirect.
-        function safeNext() {
-            const raw = new URLSearchParams(location.search).get("next") || "/account";
+        function safeNext(fallback) {
+            fallback = fallback || "/account";
+            const raw = new URLSearchParams(location.search).get("next") || fallback;
             try {
                 const u = new URL(raw, location.origin);
                 if (u.origin === location.origin) {
@@ -232,7 +238,27 @@
                     return u.href;
                 }
             } catch (e) { /* fall through */ }
-            return "/account";
+            return fallback;
+        }
+
+        // Silent mode: a league page with the ssa_auth state cookie at "1"
+        // but no recoverable session bounced here. Bootstrap does the work
+        // (exchange → self-heal re-mint); we just go straight back. The
+        // sign-in card never shows and the popup NEVER opens — anonymous
+        // visitors stay anonymous.
+        const SILENT = new URLSearchParams(location.search).get("silent") === "1";
+        if (SILENT) {
+            document.getElementById("signin-card").classList.add("hidden");
+            document.getElementById("silent-wait").classList.remove("hidden");
+        }
+
+        // Drop the ssa_auth state cookie entirely (stale-hint case: silent
+        // bounce arrived but no session exists anywhere). Absent ≠ "0": the
+        // visitor didn't sign out, so surviving league persistence elsewhere
+        // must not be purged — but league pages must also stop bouncing.
+        function clearStateCookie() {
+            document.cookie = "ssa_auth=; Domain=.sportsbookscienceanalytics.com; Path=/" +
+                "; Max-Age=0; Secure; SameSite=Lax";
         }
 
         const show = (id) => {
@@ -248,7 +274,7 @@
             if (window.Auth) return Promise.resolve();
             return new Promise((resolve, reject) => {
                 const s = document.createElement("script");
-                s.src = "/static/js/auth.js?v=2";
+                s.src = "/static/js/auth.js?v=3";
                 s.onload = resolve;
                 s.onerror = reject;
                 document.head.appendChild(s);
@@ -281,11 +307,26 @@
                 await loadAuth();
                 await window.Auth.ready();
             } catch (e) {
+                if (SILENT) {
+                    // Never strand a silently-bounced visitor on a broken
+                    // card — send them back where they came from.
+                    location.replace(safeNext("/"));
+                    return;
+                }
                 show("state-signedout");
                 showError("Could not load sign-in. Check your connection and refresh.");
                 return;
             }
             const user = window.Auth.user();
+            if (SILENT) {
+                // Signed in → bootstrap's self-heal already re-minted the
+                // parent cookie; not signed in → the "1" state was stale, so
+                // clear it (league pages stop bouncing; the visitor stays
+                // anonymous). Either way, straight back.
+                if (!(user && user.email)) clearStateCookie();
+                location.replace(safeNext("/"));
+                return;
+            }
             if (user && user.email) {
                 await remintSession(user);
                 // Came here mid-flow (e.g. from a league site or after the

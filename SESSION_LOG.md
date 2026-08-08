@@ -7,6 +7,63 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
+## 2026-08-08 — Stripe go-live build: prices decided, 6-month terms, friend codes
+
+**Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit
+
+**Prices decided (John).** Sports $99.99/mo; NCAAF+NFL bundle $149.99 (25% off
+the pair); All-Access $299.99 — REPRICED from John's initial $399.99 after
+flagging that $399.99 exceeded the 4-sport sum ($399.96); at $299.99 both
+bundle and All-Access are exactly 25% off their parts. Every SKU gains a
+6-month prepaid term at 50% off six cycles, rounded to .99: $299.99 / $449.99 /
+$899.99. All amounts live in `api/entitlements.py::LAUNCH_PRICE_CENTS` — the
+single source of truth the bootstrap scripts mint from and the UI displays.
+Also decided: Managed Payments STAYS (Stripe is merchant of record, handles
+sales tax); friend codes are 100%-off-FOREVER, single-use each.
+
+**Terms are a billing dimension, not an entitlement one.** `STRIPE_PRICE_<SKU>`
+(+ new `…_6MO`) resolve to the same slugs; an item's term is read off the
+price's own `recurring.interval_count`, never the env. Upgrades now include
+same-SKU monthly → 6-month (proration + `billing_cycle_anchor="now"` so a
+fresh 6-month cycle starts at purchase; verified in a sandbox: $99.99 monthly
+→ 6-month invoiced exactly $200.00 = $299.99 − $99.99 unused credit, period
+end landing 6 months out to the day). Term DOWNGRADES are blocked with a
+pointer at the 6-month target — swapping prepaid 6-month credit onto a
+cheaper monthly price would strand it. `apply_plan_change` now cancels
+superseded extras BEFORE the primary swap so their prorate credits land as
+pending invoice items on the SAME always_invoice invoice, not next renewal
+(which a 6-month term would push half a year out).
+
+**Checkout**: `payment_method_collection="if_required"` — a 100%-forever code
+checks out with no card at all (verified: $0 invoice, `paid`, subscription
+`active`, code burned to `times_redeemed 1/1 active:false`). Webhook loop
+verified via `stripe listen`: subscription event → uid from metadata →
+`_recompute` → `['ncaaf']`.
+
+**New**: `scripts/stripe_bootstrap_live.py` (sk_live-guarded, idempotent:
+catalog + Friends & Family coupon + 10 single-use codes + webhook endpoint
+with the signing secret piped STRAIGHT to Secret Manager + portal config with
+cancel-at-period-end and portal plan-switches OFF). `scripts/
+_bootstrap_common.py` shared with the test script. Pricing page: term toggle,
+strike-through 6×monthly compare, in-card prorated-upgrade confirm flow (the
+409 dead-end banner is gone). Account page shows each package's term.
+
+**Traps hit**: Python banker's rounding derived $149.98 from `round(19998 ×
+0.75)` (excised with the derivation itself when LAUNCH_PRICE_CENTS replaced
+it); API 2026-07-29.dahlia moved PromotionCode.create's `coupon` into nested
+`promotion{}`; the old test key had EXPIRED (replaced with a disposable CLI
+sandbox, expires 2026-08-15); deploy.sh's price-retirement example would have
+mis-parsed comma lists in `--update-env-vars` (needs the `^:^` delimiter —
+fixed in the runbook text).
+
+**Tests**: 27 → 35 (term resolution, term-switch classification, downgrade
+block, cancel-before-modify order + anchor reset, term stamping, the ladder).
+
+**Next session starts by**: John pastes the live key into Secret Manager
+(`./deploy.sh bootstrap` step 5a), then run the live bootstrap, bind secrets +
+envs, deploy, verify prod, hand over the 10 friend codes. The robots/noindex
+flip stays a SEPARATE deliberate step.
+
 ## 2026-08-07 — Launch prep: critical traversal fix, design-system unification, SEO pass
 
 **Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit

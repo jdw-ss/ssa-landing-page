@@ -3,14 +3,17 @@ Create the SSA package catalog in Stripe TEST mode.
 
 Reads STRIPE_SECRET_KEY from the environment (or the project's gitignored
 .env) and REFUSES anything that isn't an sk_test_ key — this script never
-touches live mode. For each SKU in api/entitlements.py it reuses the existing
-test Product tagged with metadata.sku, or creates the Product plus a monthly
-recurring USD Price at the catalog's display amount (placeholders are fine in
-test mode; real prices are a launch-time, live-mode decision).
+touches live mode. Provisioning itself lives in scripts/_bootstrap_common.py
+(shared with the live bootstrap): one Product per SKU, a monthly AND a
+6-month price each, at the launch amounts in
+api/entitlements.py::LAUNCH_PRICE_CENTS.
 
-Idempotent: run it again and it reuses what exists.
+Idempotent: run it again and it reuses what exists. Prices minted at older
+amounts (e.g. the pre-2026-08-08 $9.99 placeholders) stay active and are
+appended to the printed env lines so test subscriptions on them keep
+resolving.
 
-Prints ready-to-paste .env lines (STRIPE_PRICE_<SKU>=price_…) when done.
+Prints ready-to-paste .env lines (12: STRIPE_PRICE_<SKU> + …_6MO) when done.
 
 Usage (from the project root):
     python3 -m scripts.stripe_bootstrap_test
@@ -28,14 +31,7 @@ try:
 except ImportError:
     pass
 
-from api import entitlements as ent
-from api.billing import field
-
-# John's Stripe account has Managed Payments (merchant-of-record) enabled by
-# default, which requires an eligible tax_code on every product. This is the
-# generic "General - Electronically Supplied Services" code — refine per
-# product in the dashboard if ever needed.
-TAX_CODE = "txcd_10000000"
+from scripts._bootstrap_common import ensure_catalog
 
 
 def main() -> int:
@@ -47,54 +43,17 @@ def main() -> int:
         return 1
 
     key = os.environ.get("STRIPE_SECRET_KEY", "")
-    if not key.startswith("sk_test_"):
-        print("STRIPE_SECRET_KEY must be a TEST key (sk_test_…) — this script "
+    # Any test-mode key shape is fine (sk_test_, rk_test_, the CLI sandboxes'
+    # rkcs_test_); anything without _test_ in it is refused — this script
+    # never touches live mode.
+    if "_test_" not in key:
+        print("STRIPE_SECRET_KEY must be a TEST-mode key — this script "
               "never touches live mode.\nPut the test key in .env "
               "(see .env.example) and re-run.")
         return 1
     stripe.api_key = key
 
-    existing: dict[str, object] = {}
-    for prod in stripe.Product.list(active=True, limit=100).auto_paging_iter():
-        sku = field(field(prod, "metadata", {}), "sku")
-        if sku:
-            existing[sku] = prod
-
-    lines = []
-    for sku, spec in ent.SKUS.items():
-        cents = ent.display_cents(sku)
-        prod = existing.get(sku)
-        if prod is None:
-            prod = stripe.Product.create(
-                name=spec["label"],
-                description=spec["blurb"],
-                metadata={"sku": sku},
-                tax_code=TAX_CODE,
-            )
-            print(f"created product {prod.id}  {spec['label']}")
-        else:
-            if not field(prod, "tax_code"):
-                stripe.Product.modify(prod.id, tax_code=TAX_CODE)
-                print(f"reusing product {prod.id}  {spec['label']} (added tax_code)")
-            else:
-                print(f"reusing product {prod.id}  {spec['label']}")
-
-        price = None
-        for p in stripe.Price.list(product=prod.id, active=True, limit=10):
-            if field(field(p, "recurring", {}), "interval") == "month":
-                price = p
-                break
-        if price is None:
-            price = stripe.Price.create(
-                product=prod.id,
-                unit_amount=cents,
-                currency="usd",
-                recurring={"interval": "month"},
-            )
-            print(f"  created monthly price {price.id}  ${cents / 100:.2f}")
-        else:
-            print(f"  reusing monthly price {price.id}  ${(price.unit_amount or 0) / 100:.2f}")
-        lines.append(f"STRIPE_PRICE_{sku.upper()}={price.id}")
+    lines = ensure_catalog(stripe)
 
     print("\nPaste into .env:")
     print("\n".join(lines))

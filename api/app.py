@@ -75,6 +75,7 @@ class _SessionLogin(BaseModel):
 
 class _CheckoutBody(BaseModel):
     sku: str
+    term: str = "monthly"  # "monthly" | "6mo" — validated in api/billing.py
 
 
 # ── Open routes ──────────────────────────────────────────────────────────────
@@ -216,16 +217,24 @@ async def me(user: dict = Depends(require_session_user)):
 @app.get("/api/billing/catalog")
 async def billing_catalog(user: Optional[dict] = Depends(optional_session_user)):
     """The pricing page payload. Includes the caller's held slugs (empty when
-    signed out) so cards can render 'Active' / 'Included in All-Access'."""
+    signed out) so cards can render 'Active' / 'Included in All-Access', plus
+    per-SKU terms so a monthly holder's card can offer the 6-month upgrade."""
     held: list[str] = []
+    held_packages: list[dict] = []
     if user is not None:
         try:
-            held = ent.get_entitlements(user["uid"])["slugs"]
+            access = ent.get_entitlements(user["uid"])
+            held = access["slugs"]
+            held_packages = [
+                {"sku": p["sku"], "term": p.get("term", "monthly")}
+                for p in access["packages"]
+            ]
         except Exception:
             held = []  # pricing must render even if Firestore hiccups
     return {
         "catalog": ent.catalog(),
         "held_slugs": held,
+        "held_packages": held_packages,
         "signed_in": user is not None,
         "billing_configured": billing.configured(),
         "show_prices": billing.show_prices(),
@@ -234,26 +243,32 @@ async def billing_catalog(user: Optional[dict] = Depends(optional_session_user))
 
 @app.post("/api/billing/checkout")
 async def billing_checkout(body: _CheckoutBody, user: dict = Depends(require_session_user)):
-    url = await asyncio.to_thread(billing.create_checkout_session, user, body.sku)
+    url = await asyncio.to_thread(
+        billing.create_checkout_session, user, body.sku, body.term)
     return {"url": url}
 
 
 @app.get("/api/billing/change-preview")
-async def billing_change_preview(sku: str, user: dict = Depends(require_session_user)):
-    """What buying `sku` would do: an ordinary new subscription, or a prorated
-    upgrade that replaces something the customer already has. Read-only — the
+async def billing_change_preview(
+    sku: str, term: str = "monthly", user: dict = Depends(require_session_user)
+):
+    """What buying (`sku`, `term`) would do: an ordinary new subscription, or a
+    prorated upgrade that replaces something the customer already has (a bigger
+    package, or the same package moving monthly → 6-month). Read-only — the
     pricing page calls this to label the button and show the real amount before
     anyone is charged."""
-    plan = await asyncio.to_thread(billing.plan_change_preview, user, sku)
+    plan = await asyncio.to_thread(billing.plan_change_preview, user, sku, term)
     return JSONResponse(plan, headers={"Cache-Control": "private, no-store"})
 
 
 @app.post("/api/billing/change")
 async def billing_change(body: _CheckoutBody, user: dict = Depends(require_session_user)):
-    """Swap the customer onto `sku` in place, prorated, cancelling whatever it
-    supersedes. Used instead of Checkout when the purchase is an upgrade, so the
-    old package stops billing rather than running alongside the new one."""
-    result = await asyncio.to_thread(billing.apply_plan_change, user, body.sku)
+    """Swap the customer onto (`sku`, `term`) in place, prorated, cancelling
+    whatever it supersedes. Used instead of Checkout when the purchase is an
+    upgrade, so the old package stops billing rather than running alongside the
+    new one."""
+    result = await asyncio.to_thread(
+        billing.apply_plan_change, user, body.sku, body.term)
     return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
 
 

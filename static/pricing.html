@@ -230,6 +230,64 @@
         .plan .btn-active:hover { border-color: rgba(63, 185, 80, 0.5); color: var(--good); }
         .plan button:disabled { opacity: 0.7; cursor: wait; }
 
+        .term-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin: 30px auto 0;
+            width: max-content;
+            max-width: calc(100% - 48px);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 4px;
+            background: var(--bg-elev);
+        }
+        .term-toggle button {
+            font: inherit;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: transparent;
+            border: 0;
+            border-radius: 7px;
+            padding: 8px 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .term-toggle button:hover { color: var(--text-dim); }
+        .term-toggle button.active {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: var(--bg);
+        }
+        .term-toggle button.active:hover { color: var(--bg); }
+        .term-toggle .term-save {
+            font-size: 0.66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 6px;
+            opacity: 0.85;
+        }
+        .price .was {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            text-decoration: line-through;
+            margin-right: 8px;
+        }
+
+        .upg {
+            border-top: 1px dashed var(--border);
+            margin-top: 4px;
+            padding-top: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+        .upg .amt { color: var(--text); font-weight: 700; }
+        .upg-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .upg-actions button { width: auto; flex: 1; }
+
         .test-chip {
             display: inline-block;
             margin-left: 8px;
@@ -284,8 +342,10 @@
 
     <header class="hero">
         <h1>Pick your sports.<br>Or take the lot.</h1>
-        <p>Monthly packages unlock the full model for a sport — picks, forecasts,
-           and team detail — across its league site. Cancel anytime.</p>
+        <p>Packages unlock the full model for a sport — picks, forecasts,
+           and team detail — across its league site. Pay monthly, or save 50%
+           paying six months at a time. Cancel whenever; access runs to the end
+           of what you've paid for.</p>
     </header>
 
     <div class="banner info" id="banner"></div>
@@ -296,6 +356,12 @@
         forecast grids, and team detail sheets.
     </div>
 
+    <div class="term-toggle" role="group" aria-label="Billing term" id="term-toggle">
+        <button type="button" class="active" data-term="monthly" aria-pressed="true">Monthly</button>
+        <button type="button" data-term="6mo" aria-pressed="false">6 months
+            <span class="term-save">Save 50%</span></button>
+    </div>
+
     <div class="section-label">Per-sport packages</div>
     <div class="grid" id="sport-grid"></div>
 
@@ -304,8 +370,11 @@
 
     <div class="foot-notes">
         Have a promo code? Enter it at checkout.<br>
-        Subscriptions renew monthly and can be canceled anytime from
-        <a href="/account">your account</a> — no phone calls, no retention scripts.
+        Subscriptions renew automatically — monthly, or every six months on the
+        6-month term — and can be canceled anytime from
+        <a href="/account">your account</a>; you keep access through the end of
+        the time you've paid for. Upgrades are prorated, so you only ever pay
+        the difference. No phone calls, no retention scripts.
     </div>
 
     <footer>&copy; 2026 Sportsbook Science Analytics</footer>
@@ -313,7 +382,8 @@
     <script src="/static/js/account.js?v=3" defer></script>
     <script>
         const fmt = (cents) => "$" + (cents / 100).toFixed(2);
-        let CATALOG = null;
+        let CATALOG = null;   // the /api/billing/catalog payload
+        let TERM = "monthly"; // "monthly" | "6mo" — the toggle's state
 
         function showBanner(msg) {
             const b = document.getElementById("banner");
@@ -334,9 +404,11 @@
             const el = document.createElement("div");
             el.className = "plan" + (item.kind === "bundle" ? " bundle" : item.kind === "all" ? " all" : "");
 
+            // Both non-sport SKUs are priced at 25% off the sum of their parts
+            // (John, 2026-08-08); All-Access additionally absorbs future sports.
             let chip = "";
-            if (item.kind === "bundle") chip = '<div class="save-chip green">Save 20%</div>';
-            if (item.kind === "all") chip = '<div class="save-chip purple">50% off everything</div>';
+            if (item.kind === "bundle") chip = '<div class="save-chip green">Save 25%</div>';
+            if (item.kind === "all") chip = '<div class="save-chip purple">Save 25% + future sports</div>';
 
             // Launch gate: until Stripe is deliberately configured (or the
             // local SHOW_PREVIEW_PRICES override is set), show no amounts and
@@ -344,20 +416,44 @@
             const showPrices = data.show_prices;
             const testChip = (showPrices && !data.billing_configured)
                 ? '<span class="test-chip">preview pricing</span>' : "";
-            const priceHtml = showPrices
-                ? '<div class="price">' + fmt(item.monthly_cents) +
-                  '<span class="per"> /month</span>' + testChip + "</div>"
-                : '<div class="price price-tba">Pricing announced at launch</div>';
+            let priceHtml = '<div class="price price-tba">Pricing announced at launch</div>';
+            if (showPrices && TERM === "6mo") {
+                priceHtml = '<div class="price"><span class="was">' + fmt(item.monthly_cents * 6) +
+                    "</span>" + fmt(item.six_month_cents) +
+                    '<span class="per"> /6 months</span>' + testChip + "</div>";
+            } else if (showPrices) {
+                priceHtml = '<div class="price">' + fmt(item.monthly_cents) +
+                    '<span class="per"> /month</span>' + testChip + "</div>";
+            }
+
+            // What (if anything) of this SKU the customer already holds, and on
+            // which term — drives Active vs Upgrade vs plain Subscribe.
+            const heldPkg = (data.held_packages || []).find((p) => p.sku === item.sku);
+            const overlap = item.slugs.some((s) => data.held_slugs.includes(s));
 
             let action;
             if (held(data.held_slugs, item.slugs)) {
-                const viaAll = !data.held_slugs.includes("all") || item.kind === "all"
-                    ? "✓ Active" : "✓ Included in All-Access";
-                action = '<a class="btn btn-active" href="/account">' + viaAll + "</a>";
+                if (heldPkg && heldPkg.term !== "6mo" && TERM === "6mo" && showPrices) {
+                    // Held monthly, viewing 6-month: the same-SKU term upgrade.
+                    action = '<button class="btn btn-primary" data-sku="' + item.sku +
+                        '">Switch to 6-month — save 50%</button>';
+                } else if (heldPkg) {
+                    action = '<a class="btn btn-active" href="/account">✓ Active' +
+                        (heldPkg.term === "6mo" ? " · 6-month" : "") + "</a>";
+                } else {
+                    const via = data.held_slugs.includes("all")
+                        ? "All-Access" : "Football Bundle";
+                    action = '<a class="btn btn-active" href="/account">✓ Included in ' + via + "</a>";
+                }
             } else if (!showPrices) {
                 action = '<button class="btn soon" disabled>Launching soon</button>';
             } else if (!data.signed_in) {
                 action = '<a class="btn" href="/signin?next=%2Fpricing">Sign in to subscribe</a>';
+            } else if (overlap) {
+                // Partial overlap = prorated upgrade (e.g. holds NCAAF, card is
+                // the bundle). The preview call quotes the real amount first.
+                action = '<button class="btn btn-primary" data-sku="' + item.sku +
+                    '">Upgrade — pay the difference</button>';
             } else {
                 const cls = item.kind === "sport" ? "btn" : "btn btn-primary";
                 action = '<button class="' + cls + '" data-sku="' + item.sku + '">Subscribe</button>';
@@ -372,53 +468,134 @@
             return el;
         }
 
-        async function subscribe(sku, btn) {
+        function renderUpgradeConfirm(btn, plan) {
+            const per = plan.renews_every === "6-month" ? "/6 months" : "/month";
+            const extras = (plan.extra_credit_for || []).length
+                ? " Unused time on " + plan.extra_credit_for.join(", ") +
+                  " is credited on the same invoice."
+                : "";
+            const box = document.createElement("div");
+            box.className = "upg";
+            box.innerHTML =
+                "Replaces " + plan.replaces.join(", ") + ". " +
+                '<span class="amt">' + fmt(plan.due_now_cents) + "</span> due now, prorated; " +
+                "then " + fmt(plan.then_cents) + per + "." + extras +
+                '<div class="upg-actions">' +
+                '<button class="btn btn-primary" data-confirm="' + plan.sku + '">Confirm upgrade</button>' +
+                '<button class="btn" data-dismiss>Keep current</button>' +
+                "</div>";
+            btn.replaceWith(box);
+            box.querySelector("[data-dismiss]").addEventListener("click", renderGrids);
+            box.querySelector("[data-confirm]").addEventListener("click", async (e) => {
+                const b = e.target;
+                b.disabled = true;
+                b.textContent = "Upgrading…";
+                try {
+                    const resp = await fetch("/api/billing/change", {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sku: plan.sku, term: TERM }),
+                    });
+                    if (resp.ok) {
+                        location.href = "/account?upgrade=success";
+                        return;
+                    }
+                    const body = await resp.json().catch(() => ({}));
+                    showBanner(body.detail || "Couldn't apply the upgrade. Try again in a moment.");
+                } catch (err) {
+                    showBanner("Network error applying the upgrade. Try again in a moment.");
+                }
+                renderGrids();
+            });
+        }
+
+        async function buy(sku, btn) {
             btn.disabled = true;
-            btn.textContent = "Opening checkout…";
+            const orig = btn.textContent;
+            btn.textContent = "One moment…";
             try {
+                // One preview decides the path: a fresh Checkout, or an
+                // in-place prorated upgrade with an explicit confirm step.
+                const pr = await fetch(
+                    "/api/billing/change-preview?sku=" + encodeURIComponent(sku) +
+                    "&term=" + encodeURIComponent(TERM),
+                    { credentials: "same-origin" });
+                if (pr.status === 401) {
+                    location.href = "/signin?next=%2Fpricing";
+                    return;
+                }
+                const plan = await pr.json().catch(() => ({}));
+                if (!pr.ok) {
+                    showBanner(plan.detail || (pr.status === 503
+                        ? "Checkout isn't live quite yet — prices shown are a preview."
+                        : "Something went wrong starting checkout. Try again in a moment."));
+                    btn.disabled = false;
+                    btn.textContent = orig;
+                    return;
+                }
+                if (plan.kind === "upgrade") {
+                    renderUpgradeConfirm(btn, plan);
+                    return;
+                }
                 const resp = await fetch("/api/billing/checkout", {
                     method: "POST",
                     credentials: "same-origin",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ sku }),
+                    body: JSON.stringify({ sku, term: TERM }),
                 });
                 if (resp.ok) {
                     const { url } = await resp.json();
                     location.href = url;
                     return;
                 }
-                if (resp.status === 409) {
-                    showBanner("Your current packages already include this — check your account.");
-                } else if (resp.status === 503) {
+                const body = await resp.json().catch(() => ({}));
+                if (resp.status === 503) {
                     showBanner("Checkout isn't live quite yet — prices shown are a preview.");
                 } else if (resp.status === 401) {
                     location.href = "/signin?next=%2Fpricing";
                     return;
                 } else {
-                    showBanner("Something went wrong starting checkout. Try again in a moment.");
+                    showBanner(body.detail || "Something went wrong starting checkout. Try again in a moment.");
                 }
             } catch (e) {
                 showBanner("Network error starting checkout. Try again in a moment.");
             }
             btn.disabled = false;
-            btn.textContent = "Subscribe";
+            btn.textContent = orig;
         }
+
+        function renderGrids() {
+            const sportGrid = document.getElementById("sport-grid");
+            const bigGrid = document.getElementById("big-grid");
+            sportGrid.innerHTML = "";
+            bigGrid.innerHTML = "";
+            for (const item of CATALOG.catalog) {
+                const card = planCard(item, CATALOG);
+                (item.kind === "sport" ? sportGrid : bigGrid).appendChild(card);
+            }
+            document.querySelectorAll("button[data-sku]").forEach((btn) => {
+                btn.addEventListener("click", () => buy(btn.dataset.sku, btn));
+            });
+        }
+
+        document.querySelectorAll("#term-toggle button").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                if (btn.dataset.term === TERM) return;
+                TERM = btn.dataset.term;
+                document.querySelectorAll("#term-toggle button").forEach((b) => {
+                    const active = b.dataset.term === TERM;
+                    b.classList.toggle("active", active);
+                    b.setAttribute("aria-pressed", String(active));
+                });
+                if (CATALOG) renderGrids();
+            });
+        });
 
         async function render() {
             const resp = await fetch("/api/billing/catalog", { credentials: "same-origin" });
-            const data = await resp.json();
-            CATALOG = data;
-
-            const sportGrid = document.getElementById("sport-grid");
-            const bigGrid = document.getElementById("big-grid");
-            for (const item of data.catalog) {
-                const card = planCard(item, data);
-                (item.kind === "sport" ? sportGrid : bigGrid).appendChild(card);
-            }
-
-            document.querySelectorAll("button[data-sku]").forEach((btn) => {
-                btn.addEventListener("click", () => subscribe(btn.dataset.sku, btn));
-            });
+            CATALOG = await resp.json();
+            renderGrids();
         }
 
         render();

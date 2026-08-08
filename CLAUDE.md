@@ -22,7 +22,11 @@ paywall bootstrap pending (`./deploy.sh bootstrap`).
 - **Data layer**: Firestore in the shared `ssa-auth-71d16` project —
   `customers/{uid}` + `entitlements/{uid}` (webhook-only writes)
 - **Billing**: Stripe Checkout + Customer Portal + webhook (`api/billing.py`);
-  SKU catalog + slugs in `api/entitlements.py`
+  SKU catalog + slugs + the decided launch price ladder
+  (`LAUNCH_PRICE_CENTS`, John 2026-08-08) in `api/entitlements.py`. Two
+  billing TERMS per SKU — monthly and 6-month prepaid (50% off six cycles);
+  upgrades (sport → bundle/all, monthly → 6-month) swap the existing
+  subscription's price with proration via `/api/billing/change`
 - **Auth**: firebase-admin session cookies (`api/auth.py`); shared
   `ssa-auth-71d16` Firebase project; `static/js/auth.js` façade (vendored,
   same as every league) + `static/js/account.js` (the Account widget all apex
@@ -94,10 +98,20 @@ None.
 ## Gotchas
 
 - **Launch gate: /pricing shows NO dollar amounts and no purchase path until
-  Stripe is configured on the service.** John is finalizing prices (2026-07-30)
-  — the deployed site renders "Pricing announced at launch" + disabled
-  "Launching soon" buttons. `SHOW_PREVIEW_PRICES=1` overrides for LOCAL
-  exploration only (it's in the launch config) — never set it on Cloud Run.
+  Stripe is configured on the service.** Prices are DECIDED (2026-08-08,
+  `LAUNCH_PRICE_CENTS`): sports $99.99/mo, bundle $149.99, All-Access $299.99;
+  6-month terms $299.99/$449.99/$899.99 — but the deployed site still renders
+  "Pricing announced at launch" until the live bootstrap + secret binding run
+  (`./deploy.sh bootstrap` step 5). `SHOW_PREVIEW_PRICES=1` overrides for
+  LOCAL exploration only (it's in the launch config) — never set it on Cloud
+  Run.
+- **Local `.env` points at a disposable Stripe CLI sandbox** (created
+  2026-08-08, expires 2026-08-15 unless claimed) — the previous test key had
+  expired. Re-run `stripe sandbox create` + `python3 -m
+  scripts.stripe_bootstrap_test` when it lapses.
+- **Stripe API 2026-07-29.dahlia renamed PromotionCode.create's `coupon` param**
+  to the nested `promotion={"type": "coupon", "coupon": id}`; the LIST filter
+  is still flat `coupon=`. Both bootstrap scripts encode this.
 - **Stripe test keys never go on the deployed service** — a live site wired to
   test mode grants real entitlements for 4242-card "purchases". Test checkout
   locally: `.env` + `python3 -m scripts.stripe_bootstrap_test` + Stripe CLI

@@ -44,10 +44,12 @@ SPORT_SLUGS = ["cfl", "ncaaf", "nfl", "golf", "soccer", "nba", "nhl"]
 SELLABLE_SPORTS = ["cfl", "ncaaf", "nfl", "golf"]
 
 # ── SKU catalog ──────────────────────────────────────────────────────────────
-# kind: "sport" | "bundle" | "all". Bundle pricing rule (John, 2026-07-30):
-# NCAAF+NFL is the only bundle, 20% off the sum. All-Access is 50% off the sum
-# of every sellable sport. Display prices below follow those rules from the
-# per-sport placeholder until real prices are set via PRICE_DISPLAY_* envs.
+# kind: "sport" | "bundle" | "all". Pricing ladder (John, 2026-08-08):
+# sports $99.99/mo; NCAAF+NFL is the only bundle, 25% off the sum ($149.99);
+# All-Access is 25% off the sum of every sellable sport ($299.99). Every SKU
+# also sells a 6-month prepaid term at 50% off six monthly cycles — six months
+# for the price of three. Real amounts come from the PRICE_DISPLAY_* envs; the
+# derivations below only shape the placeholder ladder.
 SKUS: dict[str, dict] = {
     "sport_cfl": {
         "label": "CFL Package",
@@ -82,44 +84,53 @@ SKUS: dict[str, dict] = {
         "label": "Football Bundle",
         "kind": "bundle",
         "slugs": ["ncaaf", "nfl"],
-        "blurb": "NCAAF and NFL together at 20% off the combined price. "
+        "blurb": "NCAAF and NFL together at 25% off the combined price. "
                  "Every Saturday and every Sunday, one subscription.",
     },
     "all_access": {
         "label": "All-Access",
         "kind": "all",
         "slugs": [ALL_SLUG],
-        "blurb": "Everything, everywhere — every sport and every module, "
-                 "including new sports as they launch, at half the combined price.",
+        "blurb": "Everything, everywhere — every sport and every module at 25% "
+                 "off the combined price, including new sports as they launch "
+                 "at no extra cost.",
     },
 }
 
-_PLACEHOLDER_SPORT_CENTS = 999  # $9.99/mo stand-in until real prices are set
+# ── Prices ───────────────────────────────────────────────────────────────────
+# The decided launch ladder (John, 2026-08-08), in cents. Sports $99.99/mo; the
+# Football Bundle is 25% off the sum of its parts ($149.99); All-Access is 25%
+# off the sum of all four sellable sports ($299.99) — and unlike four separate
+# subscriptions it absorbs future sports for free. The 6-month term is "six
+# months for the price of three" (50% off six monthly cycles), rounded UP to
+# John's .99 convention: $299.97 → $299.99 and so on.
+#
+# This table is the single source of truth for amounts: the Stripe bootstrap
+# scripts mint prices at these numbers, and the pricing page displays them.
+# PRICE_DISPLAY_<SKU> / PRICE_DISPLAY_<SKU>_6MO envs can override the DISPLAY
+# (e.g. mid-repricing, while a new Stripe price is being phased in) without a
+# code change.
+LAUNCH_PRICE_CENTS: dict[tuple[str, str], int] = {
+    ("sport_cfl", "monthly"): 9999,        ("sport_cfl", "6mo"): 29999,
+    ("sport_ncaaf", "monthly"): 9999,      ("sport_ncaaf", "6mo"): 29999,
+    ("sport_nfl", "monthly"): 9999,        ("sport_nfl", "6mo"): 29999,
+    ("sport_golf", "monthly"): 9999,       ("sport_golf", "6mo"): 29999,
+    ("bundle_football", "monthly"): 14999, ("bundle_football", "6mo"): 44999,
+    ("all_access", "monthly"): 29999,      ("all_access", "6mo"): 89999,
+}
 
 
-def display_cents(sku: str) -> int:
-    """Monthly display price in cents. Real prices come from PRICE_DISPLAY_<SKU>
-    envs once John sets them; until then bundle/all-access are DERIVED from the
-    sport placeholder so the pricing ladder always reflects the agreed rules
-    (bundle = 20% off its parts, all-access = 50% off everything sellable)."""
-    env = os.environ.get(f"PRICE_DISPLAY_{sku.upper()}")
+def display_cents(sku: str, term: str = "monthly") -> int:
+    """Display price in cents for a (SKU, term), env override first."""
+    suffix = "" if term == "monthly" else "_6MO"
+    env = os.environ.get(f"PRICE_DISPLAY_{sku.upper()}{suffix}")
     if env and env.isdigit():
         return int(env)
-
-    def _sport_cents(s: str) -> int:
-        e = os.environ.get(f"PRICE_DISPLAY_SPORT_{s.upper()}")
-        return int(e) if e and e.isdigit() else _PLACEHOLDER_SPORT_CENTS
-
-    spec = SKUS[sku]
-    if spec["kind"] == "sport":
-        return _sport_cents(spec["slugs"][0])
-    if spec["kind"] == "bundle":
-        return round(sum(_sport_cents(s) for s in spec["slugs"]) * 0.80)
-    return round(sum(_sport_cents(s) for s in SELLABLE_SPORTS) * 0.50)
+    return LAUNCH_PRICE_CENTS[(sku, term)]
 
 
 def catalog() -> list[dict]:
-    """The pricing page's payload: every SKU with display price + meaning."""
+    """The pricing page's payload: every SKU with display prices + meaning."""
     return [
         {
             "sku": sku,
@@ -128,6 +139,7 @@ def catalog() -> list[dict]:
             "slugs": spec["slugs"],
             "blurb": spec["blurb"],
             "monthly_cents": display_cents(sku),
+            "six_month_cents": display_cents(sku, "6mo"),
         }
         for sku, spec in SKUS.items()
     ]
@@ -168,11 +180,13 @@ def _dev_entitlements() -> dict:
             packages.append({
                 "sku": sku, "label": spec["label"], "status": "active",
                 "current_period_end": None, "subscription_id": "dev",
+                "term": "monthly",
             })
     if ALL_SLUG in slugs:
         packages.append({
             "sku": "all_access", "label": SKUS["all_access"]["label"],
             "status": "active", "current_period_end": None, "subscription_id": "dev",
+            "term": "monthly",
         })
     return {"slugs": slugs, "packages": packages}
 

@@ -206,3 +206,148 @@ def test_checkout_refuses_a_partial_overlap_and_points_at_the_upgrade(monkeypatc
         billing.create_checkout_session({"uid": "uid1", "email": "a@b.c"}, "bundle_football")
     assert exc.value.status_code == 409
     assert "upgrade" in str(exc.value.detail).lower()
+
+
+# ── Terms: 6-month prices, term switches, and the downgrade block (2026-08-08) ─
+
+def _six_sub(sid, status, price_id, meta=None):
+    """A subscription whose one item bills every 6 months (interval_count=6)."""
+    sub = _Sub(sid, status, [price_id], meta)
+    sub["items"]["data"][0]["price"]["recurring"] = {
+        "interval": "month", "interval_count": 6}
+    return sub
+
+
+def test_six_month_prices_resolve_to_the_same_sku(monkeypatch):
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NFL", "price_nfl_m")
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NFL_6MO", "price_nfl_6")
+    assert billing.price_id_for_sku("sport_nfl") == "price_nfl_m"
+    assert billing.price_id_for_sku("sport_nfl", "6mo") == "price_nfl_6"
+    # Both terms unlock the same slugs — the webhook must resolve either.
+    assert billing.sku_for_price_id("price_nfl_6") == "sport_nfl"
+    assert billing.sku_term_for_price_id("price_nfl_6") == ("sport_nfl", "6mo")
+    assert billing.sku_term_for_price_id("price_nfl_m") == ("sport_nfl", "monthly")
+
+
+def test_item_term_reads_the_billing_interval_not_the_env():
+    assert billing._item_term({"price": {"id": "x"}}) == "monthly"
+    assert billing._item_term(
+        {"price": {"id": "x", "recurring": {"interval": "month", "interval_count": 6}}}
+    ) == "6mo"
+
+
+def test_monthly_to_six_month_same_sku_is_an_upgrade(monkeypatch):
+    """John's ask: buying 6 months while already subscribed monthly prorates
+    instead of stacking or being refused as a double-buy."""
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NFL", "price_nfl_m")
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NFL_6MO", "price_nfl_6")
+    monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
+        _Sub("sub_1", "active", ["price_nfl_m"]),
+    ]))
+    replaceable, blocked = billing._scan_changes("cus_1", "sport_nfl", "6mo")
+    assert [(s["sku"], s["term"]) for s in replaceable] == [("sport_nfl", "monthly")]
+    assert blocked == []
+
+
+def test_six_month_holder_cannot_drop_to_a_monthly_target(monkeypatch):
+    """Same SKU downward, and the sneakier shape: 6-month NCAAF vs monthly
+    bundle. Both would strand prepaid credit — both are blocked."""
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NCAAF_6MO", "price_ncaaf_6")
+    monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
+        _six_sub("sub_1", "active", "price_ncaaf_6"),
+    ]))
+    replaceable, blocked = billing._scan_changes("cus_1", "sport_ncaaf", "monthly")
+    assert replaceable == [] and [b["sku"] for b in blocked] == ["sport_ncaaf"]
+    replaceable, blocked = billing._scan_changes("cus_1", "bundle_football", "monthly")
+    assert replaceable == [] and [b["sku"] for b in blocked] == ["sport_ncaaf"]
+    # The 6-month bundle is the sanctioned path.
+    replaceable, blocked = billing._scan_changes("cus_1", "bundle_football", "6mo")
+    assert [s["sku"] for s in replaceable] == ["sport_ncaaf"] and blocked == []
+
+
+def test_blocked_checkout_points_at_the_six_month_target(monkeypatch):
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NCAAF_6MO", "price_ncaaf_6")
+    monkeypatch.setenv("STRIPE_PRICE_BUNDLE_FOOTBALL", "price_bundle_m")
+    monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
+        _six_sub("sub_1", "active", "price_ncaaf_6"),
+    ]))
+    monkeypatch.setattr(ent, "get_entitlements", lambda uid: {"slugs": ["ncaaf"], "packages": []})
+    monkeypatch.setattr(billing, "_get_or_create_customer", lambda user: "cus_1")
+    with pytest.raises(HTTPException) as exc:
+        billing.create_checkout_session({"uid": "u", "email": "a@b.c"}, "bundle_football")
+    assert exc.value.status_code == 409
+    assert "6-month" in str(exc.value.detail)
+
+
+def test_apply_plan_change_cancels_extras_first_and_resets_anchor_on_term_change(monkeypatch):
+    """Two invariants of the swap: extras' proration credits must land on the
+    SAME invoice as the charge (cancel before modify — pending invoice items get
+    swept by the always_invoice modify), and an interval change starts a fresh
+    cycle (billing_cycle_anchor=now) while a same-interval change must NOT."""
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_CFL", "price_cfl_m")
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_GOLF", "price_golf_m")
+    monkeypatch.setenv("STRIPE_PRICE_ALL_ACCESS_6MO", "price_all_6")
+    calls = []
+    subs = [
+        _Sub("sub_cfl", "active", ["price_cfl_m"]),
+        _Sub("sub_golf", "active", ["price_golf_m"]),
+    ]
+    fake = _fake_stripe(subs)
+    fake.Subscription.cancel = lambda sid, **kw: calls.append(("cancel", sid, kw))
+    fake.Subscription.modify = lambda sid, **kw: calls.append(("modify", sid, kw))
+    fake.Invoice = types.SimpleNamespace(
+        create_preview=lambda **kw: {"amount_due": 12345})
+    monkeypatch.setattr(billing, "_stripe", lambda: fake)
+    monkeypatch.setattr(ent, "get_customer",
+                        lambda uid: {"stripe_customer_id": "cus_1"})
+    monkeypatch.setattr(billing, "_recompute", lambda uid, cid: None)
+
+    result = billing.apply_plan_change({"uid": "u", "email": "a@b.c"},
+                                       "all_access", "6mo")
+
+    assert result["status"] == "ok" and result["term"] == "6mo"
+    assert [c[0] for c in calls] == ["cancel", "modify"], \
+        "extras must be cancelled BEFORE the primary swap"
+    cancel_call, modify_call = calls
+    assert cancel_call[2].get("prorate") is True
+    assert modify_call[2]["items"][0]["price"] == "price_all_6"
+    assert modify_call[2]["metadata"]["term"] == "6mo"
+    # monthly → 6mo is an interval change: fresh cycle from the purchase moment.
+    assert modify_call[2].get("billing_cycle_anchor") == "now"
+
+
+def test_recompute_stamps_the_term_on_each_package(monkeypatch):
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NFL_6MO", "price_nfl_6")
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_GOLF", "price_golf_m")
+    monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
+        _six_sub("sub_1", "active", "price_nfl_6"),
+        _Sub("sub_2", "active", ["price_golf_m"]),
+    ]))
+    written = {}
+    monkeypatch.setattr(
+        ent, "write_entitlements",
+        lambda uid, slugs, pkgs: written.update(slugs=sorted(set(slugs)), pkgs=pkgs))
+    billing._recompute("uid1", "cus_1")
+    assert written["slugs"] == ["golf", "nfl"]
+    terms = {p["sku"]: p["term"] for p in written["pkgs"]}
+    assert terms == {"sport_nfl": "6mo", "sport_golf": "monthly"}
+
+
+def test_display_ladder_is_the_decided_2026_08_08_numbers(monkeypatch):
+    """Sports $99.99/mo; bundle $149.99 (25% off the pair); All-Access $299.99
+    (25% off the 4-sport sum); every 6-month price is John's rounded-up 50% of
+    six monthly cycles. Envs override display without touching the table."""
+    assert ent.display_cents("sport_nfl") == 9999
+    assert ent.display_cents("sport_nfl", "6mo") == 29999
+    assert ent.display_cents("bundle_football") == 14999
+    assert ent.display_cents("bundle_football", "6mo") == 44999
+    assert ent.display_cents("all_access") == 29999
+    assert ent.display_cents("all_access", "6mo") == 89999
+    # Every 6-month price is an honest "save 50%" claim (49.99%+ of 6×monthly).
+    for sku in ent.SKUS:
+        six, monthly = ent.display_cents(sku, "6mo"), ent.display_cents(sku)
+        assert 0.499 <= 1 - six / (monthly * 6) <= 0.501
+    monkeypatch.setenv("PRICE_DISPLAY_ALL_ACCESS", "19999")
+    assert ent.display_cents("all_access") == 19999
+    item = next(i for i in ent.catalog() if i["sku"] == "all_access")
+    assert (item["monthly_cents"], item["six_month_cents"]) == (19999, 89999)

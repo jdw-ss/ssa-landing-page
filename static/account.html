@@ -207,6 +207,9 @@
         if (params.get("checkout") === "success") {
             showBanner("Payment received — your access activates within a minute or two. " +
                        "Refresh this page if your package isn't showing yet.", "success");
+        } else if (params.get("upgrade") === "success") {
+            showBanner("Upgrade applied — you were only charged the prorated difference. " +
+                       "Your new package is listed below.", "success");
         }
 
         function loadAuth() {
@@ -236,12 +239,14 @@
                     ? "Renews " + new Date(p.current_period_end * 1000).toLocaleDateString(
                         undefined, { month: "short", day: "numeric", year: "numeric" })
                     : "";
+                const term = p.term === "6mo" ? "6-month term" : "Monthly";
+                const detail = renews ? term + " · " + renews : term;
                 const statusClass = p.status === "active" ? "active"
                     : p.status === "past_due" ? "past_due" : "other";
                 const statusLabel = p.status === "past_due" ? "payment issue" : p.status;
                 row.innerHTML =
                     "<div><div class='name'>" + p.label + "</div>" +
-                    "<div class='renew'>" + renews + "</div></div>" +
+                    "<div class='renew'>" + detail + "</div></div>" +
                     "<span class='status " + statusClass + "'>" + statusLabel + "</span>";
                 wrap.appendChild(row);
             }

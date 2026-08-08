@@ -57,30 +57,40 @@ if [[ "${1:-}" == "bootstrap" ]]; then
    gcloud run services update ssa-landing --region=us-east1 --project=golf-data-projects \
      --update-env-vars=FIREBASE_PROJECT_ID=ssa-auth-71d16,FIREBASE_AUTH_DOMAIN=sportsbookscienceanalytics.com,FIREBASE_API_KEY=…,FIREBASE_APP_ID=…,FIRESTORE_PROJECT_ID=ssa-auth-71d16,PUBLIC_BASE_URL=https://sportsbookscienceanalytics.com
 
-5. Stripe (test mode first):
-   - Create 6 Products with monthly Prices (SKUs: sport_cfl, sport_ncaaf,
-     sport_nfl, sport_golf, bundle_football, all_access).
-   - Secret Manager: stripe-secret-key + stripe-webhook-secret in golf-data-projects,
-     then bind:
-     ⚠ --update-env-vars here too (see step 4) or this WIPES the Firebase vars.
-     gcloud run services update ssa-landing --region=us-east1 --project=golf-data-projects \
-       --set-secrets=STRIPE_SECRET_KEY=stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest \
-       --update-env-vars=STRIPE_PRICE_SPORT_CFL=price_…,STRIPE_PRICE_SPORT_NCAAF=price_…,STRIPE_PRICE_SPORT_NFL=price_…,STRIPE_PRICE_SPORT_GOLF=price_…,STRIPE_PRICE_BUNDLE_FOOTBALL=price_…,STRIPE_PRICE_ALL_ACCESS=price_…
-   - Also set the DISPLAY prices, or /pricing advertises the $9.99 placeholder
-     while Stripe charges the real amount:
-       --update-env-vars=PRICE_DISPLAY_SPORT_CFL=<cents>,… (one per sellable SKU)
+5. Stripe go-live (NOTHING exists in live mode until this):
+   a. Put the LIVE secret key in Secret Manager — John pastes it himself, once:
+        printf '%s' 'sk_live_PASTE_ME' | gcloud secrets create stripe-secret-key \
+          --replication-policy=automatic --project=golf-data-projects --data-file=-
+      (secret already exists? `gcloud secrets versions add` instead of `create`.)
+      Prefer a RESTRICTED key (rk_live_…) scoped to: Customers, Checkout
+      Sessions, Subscriptions, Invoices, Billing Portal, Prices/Products,
+      Coupons/Promotion Codes, Webhook Endpoints (write for bootstrap; the
+      running service itself never writes products/webhooks).
+   b. Run the live bootstrap (idempotent, safe to re-run). It mints the 6
+      Products × 2 Prices (monthly + 6-month) at the amounts in
+      api/entitlements.py::LAUNCH_PRICE_CENTS, the Friends & Family 100%
+      coupon + single-use codes, the webhook endpoint (signing secret goes
+      STRAIGHT into Secret Manager, never printed), and the Customer Portal
+      configuration (cancel at period end; no portal-side plan switches):
+        STRIPE_SECRET_KEY="$(gcloud secrets versions access latest \
+            --secret=stripe-secret-key --project=golf-data-projects)" \
+          python3 -m scripts.stripe_bootstrap_live
+   c. Bind both secrets and set the env lines the script printed (12×
+      STRIPE_PRICE_* + STRIPE_PORTAL_CONFIG):
+      ⚠ --update-env-vars here too (see step 4) or this WIPES the Firebase vars.
+      gcloud run services update ssa-landing --region=us-east1 --project=golf-data-projects \
+        --set-secrets=STRIPE_SECRET_KEY=stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest \
+        --update-env-vars=STRIPE_PRICE_SPORT_CFL=price_…,…,STRIPE_PORTAL_CONFIG=bpc_…
    - CHANGING A PRICE LATER: Stripe Prices are immutable, so a new amount means a
      NEW price id while existing subscriptions keep the old one. PREPEND the new
-     id, keep the old — STRIPE_PRICE_<SKU> accepts a comma-separated list and the
-     first entry is what new checkouts use:
-       --update-env-vars=STRIPE_PRICE_SPORT_NCAAF=price_NEW,price_OLD
+     id, keep the old — STRIPE_PRICE_<SKU> (and …_6MO) accepts a comma-separated
+     list and the first entry is what new checkouts use. ⚠ gcloud splits
+     --update-env-vars on commas, so a list value NEEDS the delimiter override:
+       --update-env-vars=^:^STRIPE_PRICE_SPORT_NCAAF=price_NEW,price_OLD
      Dropping the old id makes the next webhook for a legacy customer refuse to
      write (500, Stripe retries) rather than silently revoking them.
-   - Friend/discount codes: use Stripe COUPONS + promotion codes, never a second
-     Price. allow_promotion_codes is already on in create_checkout_session, and a
-     coupon keeps the same price id so none of the above applies.
-   - Stripe webhook endpoint: https://sportsbookscienceanalytics.com/api/billing/webhook
-     events: checkout.session.completed, customer.subscription.created/updated/deleted
+   - MORE FRIEND CODES: re-run the bootstrap — it tops the pool of unredeemed
+     single-use codes back up to ten and prints the full list with states.
 EOF
   exit 0
 fi
@@ -115,9 +125,12 @@ ENVS=$(gcloud run services describe "${SERVICE}" --region="${REGION}" --project=
 # unresolvable price. That now refuses to write (500 + Stripe retry) instead of
 # silently revoking, but the deploy should still say so out loud.
 for key in FIREBASE_API_KEY FIREBASE_PROJECT_ID FIREBASE_AUTH_DOMAIN FIREBASE_APP_ID \
-           FIRESTORE_PROJECT_ID PUBLIC_BASE_URL STRIPE_SECRET_KEY \
+           FIRESTORE_PROJECT_ID PUBLIC_BASE_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET \
+           STRIPE_PORTAL_CONFIG \
            STRIPE_PRICE_SPORT_CFL STRIPE_PRICE_SPORT_NCAAF STRIPE_PRICE_SPORT_NFL \
-           STRIPE_PRICE_SPORT_GOLF STRIPE_PRICE_BUNDLE_FOOTBALL STRIPE_PRICE_ALL_ACCESS; do
+           STRIPE_PRICE_SPORT_GOLF STRIPE_PRICE_BUNDLE_FOOTBALL STRIPE_PRICE_ALL_ACCESS \
+           STRIPE_PRICE_SPORT_CFL_6MO STRIPE_PRICE_SPORT_NCAAF_6MO STRIPE_PRICE_SPORT_NFL_6MO \
+           STRIPE_PRICE_SPORT_GOLF_6MO STRIPE_PRICE_BUNDLE_FOOTBALL_6MO STRIPE_PRICE_ALL_ACCESS_6MO; do
   if [[ "${ENVS}" != *"${key}"* ]]; then
     echo "  ⚠ ${key} not set on the service — sign-in/billing degraded. See ./deploy.sh bootstrap"
   fi

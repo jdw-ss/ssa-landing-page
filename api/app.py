@@ -63,6 +63,20 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+
+@app.middleware("http")
+async def cache_static_assets(request: Request, call_next):
+    """Portfolio cache policy for the /static mount (DESIGN_SYSTEM.md §3):
+    StaticFiles sends ETag/Last-Modified but no Cache-Control, leaving
+    browsers to heuristic caching. Fill-in only — routes that set their own
+    policy keep it. Path is read BEFORE call_next: the Mount rewrites the
+    scope's path during routing (nfl-elo-dashboard field lesson, 2026-08-08)."""
+    is_static = request.url.path.startswith("/static/")
+    response = await call_next(request)
+    if is_static and "cache-control" not in response.headers:
+        response.headers["Cache-Control"] = "public, max-age=300"
+    return response
+
 SESSION_COOKIE_DOMAIN = os.environ.get(
     "SESSION_COOKIE_DOMAIN", ".sportsbookscienceanalytics.com"
 )

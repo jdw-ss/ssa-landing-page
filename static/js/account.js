@@ -150,7 +150,7 @@
         if (window.Auth) return Promise.resolve();
         return new Promise((resolve, reject) => {
             const s = document.createElement("script");
-            s.src = (ON_APEX ? "" : "") + "/static/js/auth.js?v=1";
+            s.src = (ON_APEX ? "" : "") + "/static/js/auth.js?v=2";
             s.onload = resolve;
             s.onerror = reject;
             document.head.appendChild(s);

@@ -19,7 +19,12 @@
 //   Auth.signIn()         — Google popup (redirect on mobile) + parent cookie
 //   Auth.signOut()        — sign out + cookie clear
 //   Auth.disabled         — true when DISABLE_AUTH=1 (local dev stub user)
-window.Auth = (() => {
+//
+// Idempotent under double-load: pages with their own auth bootstrap (account,
+// signin) AND the account widget can both inject this script before either
+// copy executes; re-executing must keep the first façade, or callers awaiting
+// ready() on one instance read user() off a fresh unbootstrapped one.
+window.Auth = window.Auth || (() => {
     const R = () => window.__ROOT__ || "";
     let _fbCfg = null;
     let _fbAuth = null;
@@ -73,12 +78,16 @@ window.Auth = (() => {
         // out". If the cookie is valid, signInWithCustomToken below
         // triggers onAuthStateChanged with the recovered user; if not,
         // we fall through and the listener fires with null.
+        // _cookieOk tracks whether this page load proved the parent-domain
+        // cookie is alive (exchange succeeded, or we just re-minted it).
+        let _cookieOk = false;
         try {
             const resp = await fetch(R() + "/api/session/exchange", { credentials: "same-origin" });
             if (resp.ok) {
                 const { customToken } = await resp.json();
                 if (customToken) {
                     await _signInWithCustomToken(_fbAuth, customToken);
+                    _cookieOk = true;
                 }
             }
         } catch (e) {
@@ -93,6 +102,7 @@ window.Auth = (() => {
             const redirectResult = await _getRedirectResult(_fbAuth);
             if (redirectResult && redirectResult.user) {
                 await _persistSession(await redirectResult.user.getIdToken());
+                _cookieOk = true;
             }
         } catch (e) {
             console.warn("Redirect sign-in completion failed:", e);
@@ -115,6 +125,19 @@ window.Auth = (() => {
                 }
                 if (!_resolvedReady) {
                     _resolvedReady = true;
+                    // Self-heal the parent-domain cookie: Firebase local
+                    // persistence can hold a signed-in user here (apex renders
+                    // signed in) while the `__session` cookie is missing,
+                    // expired, or scoped to a legacy host — and nothing else
+                    // re-mints it, so every league site stays signed out until
+                    // a manual re-sign-in. If we have a user but the exchange
+                    // above did NOT prove the cookie (401/absent), re-mint it
+                    // now. Runs at most once per page load; _persistSession is
+                    // best-effort and never re-triggers this path.
+                    if (user && !_cookieOk) {
+                        _cookieOk = true;
+                        await _persistSession(_idToken);
+                    }
                     _ready = true;
                     resolve();
                 }

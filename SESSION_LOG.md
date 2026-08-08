@@ -7,6 +7,53 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
+## 2026-08-08 (evening) — Apex header unified + parent-cookie self-heal
+
+**Agent**: claude-fable-5 (subagent) | **Branch**: `main` | **Commits**: 2
+
+**Commit 1 — header unification** (John's directive: one standard header on
+every subdomain and page; league version canonical per DESIGN_SYSTEM.md §3).
+All five apex pages (index, pricing, account, signin, help) now render the
+league-standard `<nav class="site-nav">`: brand · divider · 7-sport row ·
+nav-right (Pricing/Help/account-stub). The five divergent inline `.top-bar`
+blocks are deleted; header + account-stub CSS lives ONCE in
+`static/css/tokens.css` (bumped `?v=3`), values verbatim from
+cfl-elo-dashboard's canonical block. No sports link is `.active` on the apex
+(it's the directory); Pricing/Help take the league active state (15px/600
+accent) on their own pages. account.html + signin.html — previously bare
+Pricing/Help headers — gain the stub + account.js so the header is identical
+everywhere. New tokens.css rule `.account-stub > a` pins the signed-out
+"Sign in" replacement link to the nav-link spec (apex has no global `a`
+colour rule; it rendered UA-blue).
+
+**Commit 2 — session-cookie self-heal** (root cause of "apex shows signed
+in, league sites show Sign In"): Firebase local persistence at the apex can
+hold a signed-in user while the parent-domain `__session` cookie is
+missing/expired/legacy-scoped, and nothing re-minted it. `auth.js
+_bootstrap()` now tracks `_cookieOk` (exchange succeeded / redirect-completion
+minted) and, on the first auth-state fire with a user but no proven cookie,
+re-mints via the existing `_persistSession` — once per page load, no loop.
+
+**Found in verification, fixed in commit 2**: adding account.js to
+account/signin created TWO auth.js loaders (each page's inline `loadAuth` +
+account.js's) → double script injection → the second IIFE replaced
+`window.Auth` mid-bootstrap and the widget read `user()` off the fresh
+unbootstrapped instance (reproduced first try: signin's widget rendered
+signed-out while the page card showed dev@local; account.html could
+spuriously bounce to /signin the same way). Fix: `window.Auth = window.Auth
+|| (...)` — double-execution keeps the first façade.
+
+**Vendoring drift (follow-up for the next league-wide vendoring pass)**:
+apex account.js's loadAuth constant is now `auth.js?v=2` (league copies say
+`?v=1` — only matters on hosts where account.js loads auth.js: apex + NFL
+landing), and the apex auth.js now carries the self-heal + idempotence guard
+the league copies lack. Both belong portfolio-wide.
+
+Versions: tokens.css v2→v3, account.js v3→v4 (all five pages), auth.js
+v1→v2 (account/signin inline loaders + account.js constant). Tests 35/35
+green; all five pages visually verified on the local preview (port 8085).
+NOT deployed; robots/noindex untouched (launch-gated).
+
 ## 2026-08-08 (later) — STRIPE IS LIVE
 
 **Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit

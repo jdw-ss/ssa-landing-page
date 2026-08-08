@@ -205,7 +205,7 @@
 
     <footer>&copy; 2026 Sportsbook Science Analytics</footer>
 
-    <script src="/static/js/account.js?v=3" defer></script>
+    <script src="/static/js/account.js?v=4" defer></script>
     <script>
         const banner = document.getElementById("banner");
         function showBanner(msg, kind) {
@@ -226,7 +226,7 @@
             if (window.Auth) return Promise.resolve();
             return new Promise((resolve, reject) => {
                 const s = document.createElement("script");
-                s.src = "/static/js/auth.js?v=1";
+                s.src = "/static/js/auth.js?v=2";
                 s.onload = resolve;
                 s.onerror = reject;
                 document.head.appendChild(s);

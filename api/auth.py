@@ -56,7 +56,16 @@ def _init_firebase_admin() -> None:
         raise RuntimeError("FIREBASE_PROJECT_ID env var is required for auth.")
 
     cred = credentials.ApplicationDefault()
-    firebase_admin.initialize_app(cred, options={"projectId": project_id})
+    # serviceAccountId: custom tokens MUST be signed by a service account
+    # INSIDE the Firebase project — identitytoolkit rejects out-of-project
+    # signers with auth/custom-token-mismatch, which silently broke every
+    # cross-site session exchange until 2026-08-08 (each service signed with
+    # its own project's runtime SA). All runtime SAs hold tokenCreator on
+    # this shared signer; the grant lives in ssa-auth-71d16.
+    firebase_admin.initialize_app(cred, options={
+        "projectId": project_id,
+        "serviceAccountId": "ssa-session-signer@ssa-auth-71d16.iam.gserviceaccount.com",
+    })
     _firebase_initialized = True
     logger.info("firebase_admin initialized for project %s.", project_id)
 

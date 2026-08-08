@@ -7,7 +7,32 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
-## 2026-08-08 — Stripe go-live build: prices decided, 6-month terms, friend codes
+## 2026-08-08 (later) — STRIPE IS LIVE
+
+**Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit
+
+Executed the go-live from the entry below. John pasted the live sk into
+`stripe-secret-key`; sequence was: deploy new code FIRST (gate holds without
+envs — no intermediate state where old code sells), then
+`scripts/stripe_bootstrap_live` (12 prices, coupon + 10 codes, webhook
+`we_1U2FEPJNU4Sozfdvwdxo403G`, portal `bpc_1U2FERJNU4SozfdvimZdJMip`), then
+bind secrets + 13 envs → revision `ssa-landing-00018-58r`.
+
+**One wrinkle**: the runtime SA (default compute) lacked
+`secretmanager.secretAccessor` — first bind attempt failed cleanly (failed
+revision never took traffic). Granted per-secret on both, retried, done. This
+grant now belongs in any future secret-adding runbook step.
+
+**Verified live**: catalog API serves the exact ladder with
+`billing_configured: true`; Stripe read-back audit confirms 12 active prices
+(right amounts + lookup_keys), webhook enabled on the 4 events, portal
+cancel-at-period-end with plan-switches OFF, coupon 100%/forever with 10/10
+codes available. **robots.txt + all noindex metas verified UNTOUCHED** —
+John is deliberately holding the SEO flip until a UI cleanup pass.
+
+**Remaining for full launch**: the robots/noindex flip (+ Product JSON-LD on
+/pricing per its TODO) — deliberately deferred.
+
 
 **Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: this commit
 

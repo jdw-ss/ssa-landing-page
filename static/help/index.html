@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=2">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=3">
 
     <!-- FAQPage structured data. Every question/answer below is the VERBATIM
          copy of a <details> block in <main>. Google requires structured-data
@@ -136,88 +136,8 @@
             z-index: -1;
         }
 
-        /* Top bar with brand + nav-right (Help + Account) */
-        .top-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 32px;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-        .brand {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-dim);
-            letter-spacing: -0.3px;
-            text-decoration: none;
-        }
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .nav-right a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-        }
-        .nav-right a.active { color: var(--accent); font-size: 15px; font-weight: 600; }
-        .nav-right a:hover { color: var(--text-dim); }
-        .account-stub {
-            position: relative;
-        }
-        .account-stub button {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            font: inherit;
-            font-size: 13px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .account-stub button:hover { border-color: var(--accent); }
-        .account-stub-menu {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: calc(100% + 6px);
-            background: var(--bg-elev);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            min-width: 240px;
-            padding: 8px 0;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-            z-index: 100;
-        }
-        .account-stub-menu.open { display: block; }
-        .account-stub-menu .item {
-            padding: 8px 16px;
-            font-size: 13px;
-            color: var(--text-muted);
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-        }
-        .account-stub-menu .item.header {
-            color: var(--text-dim);
-            font-weight: 600;
-            border-bottom: 1px solid var(--border-subtle);
-            padding-bottom: 12px;
-            margin-bottom: 4px;
-        }
-        .account-stub-menu .item .badge {
-            font-size: 11px;
-            color: var(--text-muted);
-            background: var(--border-subtle);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
+        /* Header chrome (.site-nav + .account-stub) lives ONCE in
+           /static/css/tokens.css — the league-standard block. */
 
         main { max-width: 800px; margin: 0 auto; padding: 64px 24px 96px; }
         h1 {
@@ -296,11 +216,19 @@
     </style>
 </head>
 <body>
-    <div class="top-bar">
-        <a href="/" class="brand">SSA</a>
+    <nav class="site-nav">
+        <a href="/" class="site-nav-brand">SSA</a>
+        <div class="site-nav-divider"></div>
+        <a href="https://nfl.sportsbookscienceanalytics.com"    class="site-nav-link">NFL</a>
+        <a href="https://ncaaf.sportsbookscienceanalytics.com"  class="site-nav-link">NCAAF</a>
+        <a href="https://cfl.sportsbookscienceanalytics.com"    class="site-nav-link">CFL</a>
+        <a href="https://nba.sportsbookscienceanalytics.com"    class="site-nav-link">NBA</a>
+        <a href="https://nhl.sportsbookscienceanalytics.com"    class="site-nav-link">NHL</a>
+        <a href="https://soccer.sportsbookscienceanalytics.com" class="site-nav-link">Soccer</a>
+        <a href="https://golf.sportsbookscienceanalytics.com"   class="site-nav-link">Golf</a>
         <div class="nav-right">
-            <a href="/pricing">Pricing</a>
-            <a href="/help" class="active">Help</a>
+            <a href="/pricing" class="nav-right-link">Pricing</a>
+            <a href="/help" class="nav-right-link active">Help</a>
             <div class="account-stub">
                 <button id="account-btn" aria-haspopup="true" aria-expanded="false">
                     <span>Account</span>
@@ -312,7 +240,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </nav>
 
     <main>
         <h1>Help &amp; FAQ</h1>

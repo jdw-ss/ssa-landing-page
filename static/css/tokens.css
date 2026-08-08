@@ -31,3 +31,113 @@
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
                  Roboto, sans-serif;
 }
+
+/* ── Site nav — the standard SSA header (DESIGN_SYSTEM.md §3) ─────────────
+   ONE copy for every apex page, replacing five inline .top-bar variants.
+   Values are the league-canonical block (cfl-elo-dashboard/static/css/
+   style.css → "Site nav (standardized across SSA portfolio)"); copy
+   verbatim, never retune here. */
+.site-nav {
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.site-nav-brand {
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+.site-nav-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+.site-nav-link {
+  text-decoration: none;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.site-nav-link:hover { color: var(--text); }
+.site-nav-link.active {
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+.nav-right { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+.nav-right-link { color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 500; }
+.nav-right-link:hover { color: var(--text); }
+.nav-right-link.active {
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .site-nav { gap: 14px; padding: 8px 14px; }
+}
+
+/* ── Account stub — the header's Account control, hydrated by
+   static/js/account.js. Same values previously inlined per page. ───────── */
+.account-stub { position: relative; }
+/* Signed out, account.js replaces the button with a bare <a>. League pages
+   style it via their global `a { color: var(--text) }`; the apex has no such
+   rule, so pin the link to the nav-link spec here or it renders UA-blue. */
+.account-stub > a { color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 500; }
+.account-stub > a:hover { color: var(--text); }
+.account-stub button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.account-stub button:hover { border-color: var(--accent); }
+.account-stub-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 240px;
+  padding: 8px 0;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+.account-stub-menu.open { display: block; }
+.account-stub-menu .item {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.account-stub-menu .item.header {
+  color: var(--text-dim);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+.account-stub-menu .item .badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--border-subtle);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}

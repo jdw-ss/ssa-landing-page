@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=2">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=3">
     <script>
         // The apex is the ONE auth origin (FIREBASE_AUTH_DOMAIN) — canonicalize
         // www → apex before any auth code runs so the OAuth handshake origin
@@ -37,17 +37,8 @@
                 radial-gradient(ellipse at 80% 20%, rgba(167, 139, 250, 0.03) 0%, transparent 50%);
             z-index: -1;
         }
-        .top-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 32px;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-        .brand { font-size: 14px; font-weight: 600; color: var(--text-dim); letter-spacing: -0.3px; text-decoration: none; }
-        .nav-right { display: flex; align-items: center; gap: 20px; }
-        .nav-right a { color: var(--text-muted); text-decoration: none; font-size: 13px; font-weight: 500; }
-        .nav-right a:hover { color: var(--text-dim); }
+        /* Header chrome (.site-nav + .account-stub) lives ONCE in
+           /static/css/tokens.css — the league-standard block. */
 
         main {
             flex: 1;
@@ -166,13 +157,31 @@
     </style>
 </head>
 <body>
-    <div class="top-bar">
-        <a href="/" class="brand">SSA</a>
+    <nav class="site-nav">
+        <a href="/" class="site-nav-brand">SSA</a>
+        <div class="site-nav-divider"></div>
+        <a href="https://nfl.sportsbookscienceanalytics.com"    class="site-nav-link">NFL</a>
+        <a href="https://ncaaf.sportsbookscienceanalytics.com"  class="site-nav-link">NCAAF</a>
+        <a href="https://cfl.sportsbookscienceanalytics.com"    class="site-nav-link">CFL</a>
+        <a href="https://nba.sportsbookscienceanalytics.com"    class="site-nav-link">NBA</a>
+        <a href="https://nhl.sportsbookscienceanalytics.com"    class="site-nav-link">NHL</a>
+        <a href="https://soccer.sportsbookscienceanalytics.com" class="site-nav-link">Soccer</a>
+        <a href="https://golf.sportsbookscienceanalytics.com"   class="site-nav-link">Golf</a>
         <div class="nav-right">
-            <a href="/pricing">Pricing</a>
-            <a href="/help">Help</a>
+            <a href="/pricing" class="nav-right-link">Pricing</a>
+            <a href="/help" class="nav-right-link">Help</a>
+            <div class="account-stub">
+                <button id="account-btn" aria-haspopup="true" aria-expanded="false">
+                    <span>Account</span>
+                    <span style="font-size: 10px;">▾</span>
+                </button>
+                <div class="account-stub-menu" id="account-menu">
+                    <a class="item" href="/signin?next=%2Faccount">Sign in</a>
+                    <a class="item" href="/pricing">View pricing</a>
+                </div>
+            </div>
         </div>
-    </div>
+    </nav>
 
     <main>
         <div class="card">
@@ -206,6 +215,7 @@
 
     <footer>&copy; 2026 Sportsbook Science Analytics</footer>
 
+    <script src="/static/js/account.js?v=3" defer></script>
     <script>
         // Only same-site destinations — a foreign ?next= must never turn this
         // page into an open redirect.

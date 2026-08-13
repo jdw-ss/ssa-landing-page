@@ -43,8 +43,15 @@ reorder itself was `62b5f3a` yesterday)
 - Liability cap: greater of 12 months' payments or $100; consequential damages
   excluded EXPRESSLY including wagering losses.
 
+### Same-day follow-up (second commit)
+- Footer redesigned to the Sharp Football pattern (John's call): links row →
+  "Owned and Operated by Sportsbook Science LLC • Copyright 2026 | …, All
+  rights reserved" → no-illegal-gambling/entertainment-purposes paragraph.
+  BYTE-IDENTICAL on every SSA page, absolute apex URLs so league copies match.
+  The 1-800-GAMBLER helpline moved OUT of the footer — it lives in Terms §11
+  and /help. Rolled out to all 9 league repos in the same pass.
+
 ### Open threads
-- League-surface legal footer rollout (footer block is apex-only today).
 - ToS §7 promises advance notice before charging a renewal at an INCREASED
   price — operational commitment to remember at any repricing.
 - Deploys held for John's preview approval (this service + 9 league services

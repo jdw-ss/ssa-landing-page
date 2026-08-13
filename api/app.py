@@ -155,6 +155,10 @@ async def create_session(body: _SessionLogin, response: Response):
     )
     email = (decoded.get("email") or "").lower()
     logger.info("Session minted for %s", email)
+    # Clickwrap record: /signin states that continuing accepts the Terms, so
+    # a successful mint is the acceptance event. Best-effort — never blocks
+    # sign-in (record_tos_acceptance swallows Firestore trouble internally).
+    await asyncio.to_thread(ent.record_tos_acceptance, decoded["uid"], email)
     return {"status": "ok", "email": email}
 
 
@@ -349,6 +353,18 @@ async def pricing_page():
     return _page("pricing.html")
 
 
+@app.get("/terms", include_in_schema=False)
+@app.get("/terms/", include_in_schema=False)
+async def terms_page():
+    return _page("terms/index.html")
+
+
+@app.get("/privacy", include_in_schema=False)
+@app.get("/privacy/", include_in_schema=False)
+async def privacy_page():
+    return _page("privacy/index.html")
+
+
 # Auth-state pages must never be cached — the same URL renders differently
 # signed in vs out.
 @app.get("/signin", include_in_schema=False)
@@ -395,6 +411,8 @@ _PORTFOLIO_URLS = (
     "https://sportsbookscienceanalytics.com/",
     "https://sportsbookscienceanalytics.com/pricing",
     "https://sportsbookscienceanalytics.com/help",
+    "https://sportsbookscienceanalytics.com/terms",
+    "https://sportsbookscienceanalytics.com/privacy",
     "https://nfl.sportsbookscienceanalytics.com/",
     "https://nfl.sportsbookscienceanalytics.com/elomodel",
     "https://nfl.sportsbookscienceanalytics.com/mockdrafts",

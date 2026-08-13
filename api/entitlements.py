@@ -43,6 +43,12 @@ SPORT_SLUGS = ["cfl", "ncaaf", "nfl", "golf", "soccer", "nba", "nhl"]
 # pick them up automatically via the "all" slug.
 SELLABLE_SPORTS = ["cfl", "ncaaf", "nfl", "golf"]
 
+# ── Terms of Service ─────────────────────────────────────────────────────────
+# Bump when /terms changes materially. The session mint stamps the version a
+# customer accepted onto customers/{uid} (record_tos_acceptance below); the
+# /signin card carries the by-continuing-you-agree clickwrap line.
+TOS_VERSION = "2026-08-13"
+
 # ── SKU catalog ──────────────────────────────────────────────────────────────
 # kind: "sport" | "bundle" | "all". Pricing ladder (John, 2026-08-08):
 # sports $99.99/mo; NCAAF+NFL is the only bundle, 25% off the sum ($149.99);
@@ -236,6 +242,32 @@ def set_customer(uid: str, email: str, stripe_customer_id: str) -> None:
         "stripe_customer_id": stripe_customer_id,
         "created_at": datetime.datetime.now(datetime.timezone.utc),
     }, merge=True)
+
+
+def record_tos_acceptance(uid: str, email: str = "") -> None:
+    """Best-effort clickwrap record: stamp customers/{uid} with the Terms
+    version in force when the customer signed in. Never raises — a Firestore
+    hiccup must not block sign-in — and skips the write when the stored
+    version already matches, so the original acceptance timestamp survives
+    routine re-mints."""
+    if _is_dev():
+        return
+    try:
+        ref = _firestore().collection("customers").document(uid)
+        snap = ref.get()
+        data = snap.to_dict() if snap.exists else None
+        if data and data.get("tos_version") == TOS_VERSION:
+            return
+        stamp: dict = {
+            "tos_version": TOS_VERSION,
+            "tos_accepted_at": datetime.datetime.now(datetime.timezone.utc),
+        }
+        if email:
+            stamp["email"] = email
+        ref.set(stamp, merge=True)
+        logger.info("ToS %s acceptance recorded for %s", TOS_VERSION, uid)
+    except Exception as exc:
+        logger.warning("ToS acceptance stamp failed for %s: %s", uid, exc)
 
 
 def uid_for_stripe_customer(stripe_customer_id: str) -> Optional[str]:

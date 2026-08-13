@@ -31,7 +31,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=3">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=4">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -274,10 +274,10 @@
         <a href="https://nfl.sportsbookscienceanalytics.com"    class="site-nav-link">NFL</a>
         <a href="https://ncaaf.sportsbookscienceanalytics.com"  class="site-nav-link">NCAAF</a>
         <a href="https://cfl.sportsbookscienceanalytics.com"    class="site-nav-link">CFL</a>
+        <a href="https://golf.sportsbookscienceanalytics.com"   class="site-nav-link">Golf</a>
         <a href="https://nba.sportsbookscienceanalytics.com"    class="site-nav-link">NBA</a>
         <a href="https://nhl.sportsbookscienceanalytics.com"    class="site-nav-link">NHL</a>
         <a href="https://soccer.sportsbookscienceanalytics.com" class="site-nav-link">Soccer</a>
-        <a href="https://golf.sportsbookscienceanalytics.com"   class="site-nav-link">Golf</a>
         <div class="nav-right">
             <a href="/pricing" class="nav-right-link active">Pricing</a>
             <a href="/help" class="nav-right-link">Help</a>
@@ -324,14 +324,28 @@
 
     <div class="foot-notes">
         Have a promo code? Enter it at checkout.<br>
-        Subscriptions renew automatically — monthly, or every six months on the
-        6-month term — and can be canceled anytime from
-        <a href="/account">your account</a>; you keep access through the end of
-        the time you've paid for. Upgrades are prorated, so you only ever pay
-        the difference. No phone calls, no retention scripts.
+        Subscriptions automatically renew at the end of each monthly or 6-month
+        term, at the then-current price for your package, until canceled; the
+        price you will be charged, including on renewal, is shown at checkout
+        before you subscribe. Cancel anytime from
+        <a href="/account">your account</a> — cancellation stops future renewals
+        and your access continues through the end of the paid period. Upgrades
+        are prorated, so you only ever pay the difference. No phone calls, no
+        retention scripts. Payments are processed by Stripe as merchant of
+        record, and your purchase may additionally be subject to Stripe/Link
+        terms of sale presented at checkout. All payments are non-refundable
+        except where required by law. By subscribing, you agree to the
+        <a href="/terms">Terms of Service</a> and
+        <a href="/privacy">Privacy Policy</a>.
     </div>
 
-    <footer>&copy; 2026 Sportsbook Science Analytics</footer>
+    <footer class="site-footer">
+        <p class="site-footer-legal">Sportsbook Science Analytics provides content for informational and entertainment purposes only. It is not gambling, betting, investment, or financial advice, and no results are guaranteed.</p>
+        <p class="site-footer-legal"><strong>You must be 21 or older and of legal sports-wagering age in your jurisdiction.</strong> If you or someone you know has a gambling problem, call 1-800-GAMBLER (National Problem Gambling Helpline) or visit <a href="https://www.ncpgambling.org">ncpgambling.org</a>.</p>
+        <p class="site-footer-legal">SSA is not a sportsbook, accepts no wagers, and is not affiliated with any league, team, or sportsbook.</p>
+        <p class="site-footer-links"><a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/help">Help</a></p>
+        <p class="site-footer-copy">&copy; 2026 Sportsbook Science Analytics</p>
+    </footer>
 
     <script src="/static/js/account.js?v=5" defer></script>
     <script>

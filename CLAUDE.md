@@ -5,7 +5,8 @@
 The apex for **sportsbookscienceanalytics.com** (apex + www) — since 2026-07-30
 the portfolio's **customer auth + billing hub**, not just a landing page (see
 `docs/adr/0001-apex-auth-billing-hub.md`). Four jobs: (1) league directory at
-`/` + `/help` FAQ; (2) customer Google sign-in at `/signin` — the ONE origin
+`/` + `/help` FAQ + `/terms` + `/privacy` legal pages (2026-08-13); (2) customer
+Google sign-in at `/signin` — the ONE origin
 where the popup runs for the whole SSA family, with the Firebase auth handler
 self-proxied at `/__/auth/*`; (3) the parent-domain `__session` SSO mint for
 ANY verified Google user (no allow-list — this is the customer path; league
@@ -96,6 +97,14 @@ None.
   writes; league rollout adds `require_entitlement` per league (ADR-0001 here)
 
 ## Gotchas
+
+- **Bump `TOS_VERSION` (api/entitlements.py) whenever `/terms` changes
+  materially** — the session mint stamps the accepted version on
+  `customers/{uid}` (best-effort, never blocks sign-in). The clickwrap line
+  lives in `/signin`'s fineprint; keep both in step with the Terms.
+- **`static/help/index.html` FAQ answers exist TWICE** — visible `<details>`
+  AND the FAQPage JSON-LD in `<head>`. Google requires them to match; edit
+  both in the same commit (the 2026-08-13 legal pass tripped on this).
 
 - **Launch gate: /pricing shows NO dollar amounts and no purchase path until
   Stripe is configured on the service.** Prices are DECIDED (2026-08-08,

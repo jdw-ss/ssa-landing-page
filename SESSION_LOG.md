@@ -7,6 +7,49 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
+## 2026-08-13 — Legal protection stack + nav-mirrors-cards reorder
+
+**Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: 1 (this commit; the card
+reorder itself was `62b5f3a` yesterday)
+
+### Changed
+- **`static/terms/index.html` + `static/privacy/index.html` (NEW)** — full Terms of
+  Service + Privacy Policy, drafted via a 3-doc adversarial-review workflow and
+  audited for fact-consistency. Served at `/terms` + `/privacy` (`api/app.py`),
+  in the sitemap, noindex'd until launch (the launch flip now covers 4 metas +
+  robots.txt).
+- **`api/entitlements.py`** — `TOS_VERSION = "2026-08-13"` +
+  `record_tos_acceptance()` (merge-write to `customers/{uid}`, skips when the
+  stored version matches so the original acceptance timestamp survives, never
+  raises, dev-mode skip).
+- **`api/app.py`** — `create_session` stamps ToS acceptance after a successful
+  mint (clickwrap record; `/signin` carries the by-continuing-you-agree line).
+- **`static/css/tokens.css`** — new `.site-footer` legal block (tokens only);
+  `?v=4` bumped on all 7 pages.
+- **All apex pages** — L1 nav reordered to NFL·NCAAF·CFL·Golf·NBA·NHL·Soccer
+  (mirrors homepage cards); legal footer everywhere; signin fineprint is now the
+  clickwrap (21+ + legal-wagering-age confirmation + Terms/Privacy links);
+  pricing foot-notes disclose auto-renewal at then-current price, Stripe
+  merchant-of-record, and no-refunds; help refunds FAQ rewritten to the real
+  policy (visible answer AND its JSON-LD twin — the twin was caught by the
+  verify workflow after the visible fix) + new Responsible Gaming section.
+
+### Decisions
+- Contracting party: **John D Wilson LLC d/b/a Sportsbook Science LLC** (CO LLC).
+- **Colorado** governing law + venue; informal-resolution-first; NO arbitration.
+- **No refunds** except where required by law; cancel anytime, access to period
+  end. **21+** and legal wagering age. No dollar amounts in the legal docs
+  (prices live at checkout); the $100 liability floor is the only figure.
+- Liability cap: greater of 12 months' payments or $100; consequential damages
+  excluded EXPRESSLY including wagering losses.
+
+### Open threads
+- League-surface legal footer rollout (footer block is apex-only today).
+- ToS §7 promises advance notice before charging a renewal at an INCREASED
+  price — operational commitment to remember at any repricing.
+- Deploys held for John's preview approval (this service + 9 league services
+  carry the nav reorder).
+
 ## 2026-08-08 (night) — Cross-site auth state: `ssa_auth` cookie + silent sign-in mode
 
 **Agent**: claude-fable-5 subagent | **Branch**: `main` | **Commits**: 1

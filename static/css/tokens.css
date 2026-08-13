@@ -141,3 +141,28 @@
   border-radius: 4px;
   font-weight: 500;
 }
+
+/* ── Site footer — the legal footer block (DESIGN_SYSTEM.md §3, 2026-08-13).
+   Two compact disclaimer lines, the Terms · Privacy · Help links, and the
+   copyright. ONE copy for every apex page; league surfaces adopt it with the
+   disclaimer rollout. Chrome tokens only — no data colours here. */
+.site-footer {
+  text-align: center;
+  padding: 40px 20px 28px;
+  margin-top: auto;
+  border-top: 1px solid var(--border-subtle);
+}
+.site-footer p { margin: 0 auto 8px; max-width: 760px; }
+.site-footer-legal {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.site-footer-links {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  padding-top: 4px;
+}
+.site-footer a { color: var(--accent); text-decoration: none; }
+.site-footer a:hover { color: var(--text); }
+.site-footer-copy { color: var(--text-muted); font-size: 12px; padding-top: 2px; }

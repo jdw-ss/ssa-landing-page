@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=3">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=4">
 
     <!-- FAQPage structured data. Every question/answer below is the VERBATIM
          copy of a <details> block in <main>. Google requires structured-data
@@ -104,7 +104,7 @@
                 "name": "Do you offer refunds?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Refund policy will be published with the first paid product launch. SSA prefers a \"first month free\" or \"satisfaction guarantee\" model over a refund maze — exact terms TBD."
+                    "text": "Payments are non-refundable except where the law requires otherwise. Instead of a refund maze, you can cancel anytime — canceling stops the next renewal, and your access runs through the end of the period you've already paid for. The full policy is in the Terms of Service."
                 }
             },
             {
@@ -205,6 +205,9 @@
         details .body p + p { margin-top: 10px; }
         details .body ul { margin: 10px 0 0 24px; }
         details .body ul li { margin-bottom: 4px; }
+        .rg p { margin-bottom: 12px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
+        .rg a { color: var(--accent); }
+        .rg strong { color: var(--text); }
 
         footer {
             text-align: center;
@@ -222,10 +225,10 @@
         <a href="https://nfl.sportsbookscienceanalytics.com"    class="site-nav-link">NFL</a>
         <a href="https://ncaaf.sportsbookscienceanalytics.com"  class="site-nav-link">NCAAF</a>
         <a href="https://cfl.sportsbookscienceanalytics.com"    class="site-nav-link">CFL</a>
+        <a href="https://golf.sportsbookscienceanalytics.com"   class="site-nav-link">Golf</a>
         <a href="https://nba.sportsbookscienceanalytics.com"    class="site-nav-link">NBA</a>
         <a href="https://nhl.sportsbookscienceanalytics.com"    class="site-nav-link">NHL</a>
         <a href="https://soccer.sportsbookscienceanalytics.com" class="site-nav-link">Soccer</a>
-        <a href="https://golf.sportsbookscienceanalytics.com"   class="site-nav-link">Golf</a>
         <div class="nav-right">
             <a href="/pricing" class="nav-right-link">Pricing</a>
             <a href="/help" class="nav-right-link active">Help</a>
@@ -329,7 +332,8 @@
         <details>
             <summary>Do you offer refunds?</summary>
             <div class="body">
-                <p>Refund policy will be published with the first paid product launch. SSA prefers a "first month free" or "satisfaction guarantee" model over a refund maze — exact terms TBD.</p>
+                <p>Payments are non-refundable except where the law requires otherwise. Instead of a refund maze, you can <a href="/account">cancel anytime</a> — canceling stops the next renewal, and your access runs through the end of the period you've already paid for.</p>
+                <p>The full policy is in the <a href="/terms">Terms of Service</a>.</p>
             </div>
         </details>
 
@@ -341,10 +345,20 @@
                 <p>Email <a href="mailto:jdwilson@sportsbookscienceanalytics.com">jdwilson@sportsbookscienceanalytics.com</a> with as much detail as possible: which league site, which browser, what you saw vs. what you expected. Screenshots help.</p>
             </div>
         </details>
+
+        <h2>Responsible Gaming</h2>
+        <div class="rg">
+            <p>Sportsbook Science Analytics is an analytics and entertainment product. Nothing on this site is gambling, betting, investment, or financial advice, and nothing on this site should be treated as a reason to place a bet. Our models can be wrong, and past performance does not guarantee future results. Any wagering decisions you make are your own, and you bear all risk and all losses; if you choose to wager, bet only what you can afford to lose.</p>
+            <p>If you or someone you know has a gambling problem, call <a href="tel:+18004262537">1-800-GAMBLER</a> (National Problem Gambling Helpline) or visit <a href="https://www.ncpgambling.org">ncpgambling.org</a>.</p>
+        </div>
     </main>
 
-    <footer>
-        &copy; 2026 Sportsbook Science Analytics
+    <footer class="site-footer">
+        <p class="site-footer-legal">Sportsbook Science Analytics provides content for informational and entertainment purposes only. It is not gambling, betting, investment, or financial advice, and no results are guaranteed.</p>
+        <p class="site-footer-legal"><strong>You must be 21 or older and of legal sports-wagering age in your jurisdiction.</strong> If you or someone you know has a gambling problem, call 1-800-GAMBLER (National Problem Gambling Helpline) or visit <a href="https://www.ncpgambling.org">ncpgambling.org</a>.</p>
+        <p class="site-footer-legal">SSA is not a sportsbook, accepts no wagers, and is not affiliated with any league, team, or sportsbook.</p>
+        <p class="site-footer-links"><a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/help">Help</a></p>
+        <p class="site-footer-copy">&copy; 2026 Sportsbook Science Analytics</p>
     </footer>
 
     <script src="/static/js/account.js?v=5" defer></script>

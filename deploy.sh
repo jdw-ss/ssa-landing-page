@@ -138,7 +138,9 @@ done
 
 echo
 echo "── Health check (apex + www + API) ──"
+# -L: www 301s to the apex by design (SEO canonical host, 2026-08-13) — follow
+# the redirect so the check still validates end-to-end content delivery.
 for url in "https://sportsbookscienceanalytics.com" "https://www.sportsbookscienceanalytics.com" "https://sportsbookscienceanalytics.com/api/health"; do
-  CODE=$(curl -s -o /dev/null -w "%{http_code}" "${url}")
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" -L "${url}")
   echo "  ${url} → HTTP ${CODE}"
 done

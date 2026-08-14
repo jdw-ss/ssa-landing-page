@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Page not found — Sportsbook Science Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=4">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-family);
+            background: var(--bg);
+            color: var(--text-dim);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Header chrome (.site-nav + .account-stub) and the legal footer
+           (.site-footer) live ONCE in /static/css/tokens.css. */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 64px 24px;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 50%, var(--accent-2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 14px;
+        }
+        p { color: var(--text-muted); max-width: 480px; line-height: 1.6; margin-bottom: 24px; }
+        a.home {
+            color: var(--bg);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            border-radius: 8px;
+            padding: 10px 22px;
+            font-weight: 700;
+            font-size: 14px;
+            text-decoration: none;
+        }
+        a.home:hover { filter: brightness(1.08); }
+    </style>
+</head>
+<body>
+    <nav class="site-nav">
+        <a href="/" class="site-nav-brand">SSA</a>
+        <div class="site-nav-divider"></div>
+        <a href="https://nfl.sportsbookscienceanalytics.com"    class="site-nav-link">NFL</a>
+        <a href="https://ncaaf.sportsbookscienceanalytics.com"  class="site-nav-link">NCAAF</a>
+        <a href="https://cfl.sportsbookscienceanalytics.com"    class="site-nav-link">CFL</a>
+        <a href="https://golf.sportsbookscienceanalytics.com"   class="site-nav-link">Golf</a>
+        <a href="https://nba.sportsbookscienceanalytics.com"    class="site-nav-link">NBA</a>
+        <a href="https://nhl.sportsbookscienceanalytics.com"    class="site-nav-link">NHL</a>
+        <a href="https://soccer.sportsbookscienceanalytics.com" class="site-nav-link">Soccer</a>
+        <div class="nav-right">
+            <a href="/pricing" class="nav-right-link">Pricing</a>
+            <a href="/help" class="nav-right-link">Help</a>
+            <div class="account-stub">
+                <button id="account-btn" aria-haspopup="true" aria-expanded="false">
+                    <span>Account</span>
+                    <span style="font-size: 10px;">▾</span>
+                </button>
+                <div class="account-stub-menu" id="account-menu">
+                    <a class="item" href="/signin?next=%2Faccount">Sign in</a>
+                    <a class="item" href="/pricing">View pricing</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <h1>Page not found</h1>
+        <p>No line on this one — the page you're looking for doesn't exist.
+           Head back to the home page, or pick a league from the nav above.</p>
+        <a class="home" href="/">Back to SSA</a>
+    </main>
+
+    <footer class="site-footer">
+        <p class="site-footer-links"><a href="https://sportsbookscienceanalytics.com/terms">Terms of Service</a> &middot; <a href="https://sportsbookscienceanalytics.com/privacy">Privacy Policy</a> &middot; <a href="https://sportsbookscienceanalytics.com/help">Help</a></p>
+        <p class="site-footer-copy">Owned and Operated by Sportsbook Science LLC &bull; Copyright 2026 | Sportsbook Science LLC, All rights reserved</p>
+        <p class="site-footer-legal">Sportsbook Science LLC does not endorse, recommend or support illegal betting or gambling under any circumstances. All information on this site is for entertainment purposes only and is not intended to be used in any direct or indirect violation of local, state, federal or international law(s).</p>
+    </footer>
+
+    <script src="/static/js/account.js?v=5" defer></script>
+</body>
+</html>

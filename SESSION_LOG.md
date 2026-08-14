@@ -51,6 +51,19 @@ reorder itself was `62b5f3a` yesterday)
   The 1-800-GAMBLER helpline moved OUT of the footer — it lives in Terms §11
   and /help. Rolled out to all 9 league repos in the same pass.
 
+### Same-day follow-up (third commit) — SEO hardening
+- Post-deploy SEO audit (3-agent crawl) found: soft-404s on every host (any
+  junk URL → 200 homepage), the `/elomodel` + `/epl` no-slash 307→http→301
+  chains poisoning sitemaps AND canonicals, www serving 200 duplicates, and
+  trailing-slash twins on the apex pages. All fixed portfolio-wide same day:
+  real 404s (new `static/404.html`, catch-all status change only — traversal
+  containment, api hard-404, auth all untouched), www → apex 301 middleware
+  (GET/HEAD only; webhook unaffected; deploy.sh health check now follows with
+  -L), slash → no-slash 301s, sitemap `_PORTFOLIO_URLS` now lists
+  `/elomodel/` + `/epl/` (the direct-200 forms), league repos got
+  `--proxy-headers` + canonical alignment + HEAD support (FastAPI's @app.get
+  doesn't auto-add HEAD). Lessons recorded in ANALYTICS_PROJECT_GUIDELINES.
+
 ### Open threads
 - ToS §7 promises advance notice before charging a renewal at an INCREASED
   price — operational commitment to remember at any repricing.

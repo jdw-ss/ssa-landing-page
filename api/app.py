@@ -40,7 +40,7 @@ except ImportError:  # python-dotenv absent — envs come from the shell/Cloud R
 
 import requests
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -80,6 +80,21 @@ async def cache_static_assets(request: Request, call_next):
 SESSION_COOKIE_DOMAIN = os.environ.get(
     "SESSION_COOKIE_DOMAIN", ".sportsbookscienceanalytics.com"
 )
+_APEX_HOST = "sportsbookscienceanalytics.com"
+
+
+@app.middleware("http")
+async def canonicalize_www(request: Request, call_next):
+    """www → apex 301 (SEO audit 2026-08-13: www served 200 duplicates of
+    every page; crawlers don't run the client-side canonicalize scripts).
+    GET/HEAD only — anything else (the Stripe webhook) passes through."""
+    host = request.headers.get("host", "").split(":")[0]
+    if host == f"www.{_APEX_HOST}" and request.method in ("GET", "HEAD"):
+        url = f"https://{_APEX_HOST}{request.url.path}"
+        if request.url.query:
+            url += f"?{request.url.query}"
+        return RedirectResponse(url, status_code=301)
+    return await call_next(request)
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 14  # 14d, the Firebase max
 
 
@@ -343,7 +358,6 @@ async def index():
 
 
 @app.get("/help", include_in_schema=False)
-@app.get("/help/", include_in_schema=False)
 async def help_page():
     return _page("help/index.html")
 
@@ -354,15 +368,25 @@ async def pricing_page():
 
 
 @app.get("/terms", include_in_schema=False)
-@app.get("/terms/", include_in_schema=False)
 async def terms_page():
     return _page("terms/index.html")
 
 
 @app.get("/privacy", include_in_schema=False)
-@app.get("/privacy/", include_in_schema=False)
 async def privacy_page():
     return _page("privacy/index.html")
+
+
+# Trailing-slash variants 301 to the canonical no-slash form (SEO audit
+# 2026-08-13: both forms previously served 200 — duplicate content).
+@app.get("/help/", include_in_schema=False)
+@app.get("/pricing/", include_in_schema=False)
+@app.get("/terms/", include_in_schema=False)
+@app.get("/privacy/", include_in_schema=False)
+@app.get("/signin/", include_in_schema=False)
+@app.get("/account/", include_in_schema=False)
+async def slash_redirect(request: Request):
+    return RedirectResponse(request.url.path.rstrip("/"), status_code=301)
 
 
 # Auth-state pages must never be cached — the same URL renders differently
@@ -414,14 +438,14 @@ _PORTFOLIO_URLS = (
     "https://sportsbookscienceanalytics.com/terms",
     "https://sportsbookscienceanalytics.com/privacy",
     "https://nfl.sportsbookscienceanalytics.com/",
-    "https://nfl.sportsbookscienceanalytics.com/elomodel",
+    "https://nfl.sportsbookscienceanalytics.com/elomodel/",
     "https://nfl.sportsbookscienceanalytics.com/mockdrafts",
     "https://ncaaf.sportsbookscienceanalytics.com/",
     "https://cfl.sportsbookscienceanalytics.com/",
     "https://nba.sportsbookscienceanalytics.com/",
     "https://nhl.sportsbookscienceanalytics.com/",
     "https://soccer.sportsbookscienceanalytics.com/",
-    "https://soccer.sportsbookscienceanalytics.com/epl",
+    "https://soccer.sportsbookscienceanalytics.com/epl/",
     "https://golf.sportsbookscienceanalytics.com/",
 )
 
@@ -457,8 +481,9 @@ async def sitemap_portfolio():
 
 @app.get("/{full_path:path}", include_in_schema=False)
 async def serve_rest(full_path: str):
-    """Real static files pass through; anything else falls back to the league
-    directory (marketing-site behavior) rather than a bare 404."""
+    """Real static files pass through; anything else is a REAL 404 (SEO audit
+    2026-08-13: the old serve-the-homepage fallback made every junk URL a
+    200 soft-404 duplicate)."""
     # Unknown `/api/...` paths must 404, not fall through to the HTML shell — a
     # 200-with-HTML soft-404 misleads clients and lets crawlers index junk API
     # URLs. (Portfolio hardening 2026-08-07.)
@@ -476,4 +501,8 @@ async def serve_rest(full_path: str):
         file_path = None
     if file_path is not None and file_path.is_relative_to(static_root) and file_path.is_file():
         return FileResponse(file_path)
-    return _page("index.html")
+    return FileResponse(
+        STATIC_DIR / "404.html",
+        status_code=404,
+        headers={"Cache-Control": "no-cache"},
+    )

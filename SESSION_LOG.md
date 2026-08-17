@@ -7,6 +7,50 @@ Write an entry at the end of any non-trivial session (anything that produced com
 ---
 
 <!-- New entries go directly below this line -->
+
+## 2026-08-16 — Launch gate opened: the apex is indexable
+
+**Agent**: claude-opus-5 | Deployed `ssa-landing-00026-lnc`
+
+John: "Go ahead and open the public domains to be crawled, including apex."
+
+The apex was the LAST host still closed. Every league subdomain had been
+`Allow: /` with a sitemap since the SEO pass, so the homepage, `/pricing` and
+the legal pages — the entire commercial front door — were invisible to every
+crawler while Stripe had been live since 2026-08-08.
+
+**Scoped to five URLs, not "remove every noindex".** `_PORTFOLIO_URLS` in
+`api/app.py` already declared exactly which apex URLs belong in the sitemap, so
+that list decided it: `/`, `/pricing`, `/help`, `/terms`, `/privacy` flipped to
+`index, follow` (help already was), and `/signin`, `/account`, `404.html` kept
+their `noindex`.
+
+**`/signin` and `/account` are excluded TWO ways on purpose** — a `noindex` meta
+AND a `robots.txt Disallow`. Not belt-and-braces paranoia: a Disallow'd URL can
+still be indexed title-only from an inbound link, precisely because the crawler
+never fetches it and therefore never sees the meta. A credential entry point and
+a private customer view warrant both.
+
+**Pinned in both directions**, since both failures are silent and expensive —
+de-indexing the storefront costs every organic signup, and indexing `/account`
+puts a customer's own view in search results. A further test asserts the sitemap
+URL set and the indexable-meta set AGREE, because they drift independently: a new
+apex page can land in `_PORTFOLIO_URLS` without a meta, or get a meta without
+ever being submitted. All three regressions (de-indexed storefront, exposed
+`/account`, blanket `Disallow`) were verified to FAIL the suite before this
+shipped.
+
+Also removed the now-false LAUNCH GATE comments from the four flipped pages and
+the robots route, and re-anchored `pricing.html`'s Product/Offer JSON-LD TODO so
+it no longer reads as blocked on a flip that has happened.
+
+**Verified live** on the deployed service: `robots.txt` allows with the sitemap
+reference, all five public pages return `index, follow`, `/signin` + `/account`
+return `noindex, nofollow`, the 404 page keeps `noindex`, and the sitemap index
+lists 8 child sitemaps.
+
+**Still open**: the Product/Offer JSON-LD on `/pricing` (one Product per SKU in
+`api/entitlements.py`, prices read from the LIVE Stripe prices).
 ## 2026-08-13 — Legal protection stack + nav-mirrors-cards reorder
 
 **Agent**: claude-fable-5 | **Branch**: `main` | **Commits**: 1 (this commit; the card

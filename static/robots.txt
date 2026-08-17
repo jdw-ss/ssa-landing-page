@@ -1,2 +1,12 @@
 User-agent: *
-Disallow: /
+Allow: /
+
+# Private surfaces. These carry `noindex` metas too — the Disallow is belt and
+# braces, and the two are NOT redundant: a page that is Disallow'd here can
+# still be indexed URL-only from an inbound link, because the crawler never
+# fetches it and so never sees the meta. Keeping both means the sign-in and
+# account pages stay out of results either way.
+Disallow: /signin
+Disallow: /account
+
+Sitemap: https://sportsbookscienceanalytics.com/sitemap.xml

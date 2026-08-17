@@ -144,9 +144,20 @@ None.
   on every event (idempotent, self-healing).
 - **Homepage Live / Coming-Soon badges are manual and drift.** When a league
   launches its public surface, flip its card here (CFL sat stale once already).
-- **Apex is `noindex, nofollow` + `robots.txt Disallow`** until launch — flip
-  BOTH (meta in `static/index.html`, `static/robots.txt`) when the paywall
-  goes live (John's call, 2026-07-30).
+- **The apex is INDEXABLE as of 2026-08-16 — the launch gate is open.** John's
+  call; `static/robots.txt` is `Allow: /` with the sitemap reference and the
+  `noindex` metas came off `/`, `/pricing`, `/terms`, `/privacy` (`/help` was
+  already indexable). Context for why it mattered: every league subdomain had
+  been `Allow: /` with a sitemap since the SEO pass, so the apex was the ONLY
+  host search engines could not see — the homepage, pricing and legal pages,
+  i.e. the entire commercial front door, with Stripe live since 2026-08-08.
+  **`/signin` and `/account` stay out, and in two ways at once**: a `noindex`
+  meta AND a `robots.txt Disallow`. That is not belt-and-braces paranoia — a
+  Disallow'd URL can still be indexed title-only from an inbound link, because
+  the crawler never fetches it and therefore never sees the meta. `404.html`
+  keeps its `noindex` too. **The indexable set is exactly `_PORTFOLIO_URLS` in
+  `api/app.py`** — if you add an apex page, add it there and give it an
+  `index, follow` meta, or it will be crawlable but absent from the sitemap.
 - Two domain mappings (apex + www) — recreating either triggers 15min–hours of
   cert re-provisioning; check both when debugging cache/cert issues.
 - `nginx.conf` at repo root is **dead** post-conversion (Dockerfile no longer

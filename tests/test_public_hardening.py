@@ -129,3 +129,85 @@ def test_session_exchange_anonymous_401(client, monkeypatch):
     _stub_firebase(monkeypatch)
     client.cookies.clear()
     assert client.get("/api/session/exchange").status_code == 401
+
+
+# ── Indexability: the launch gate opened 2026-08-16 ──────────────────────────
+#
+# Until 2026-08-16 the apex served `robots.txt: Disallow: /` plus a `noindex`
+# meta on every page — the deliberate pre-launch gate. Every LEAGUE subdomain
+# had been `Allow: /` with a sitemap since the SEO pass, so the apex was the one
+# host search engines could not see: the homepage, /pricing and the legal pages,
+# i.e. the whole commercial front door, with Stripe live since 2026-08-08.
+#
+# Both directions now matter and both are one careless edit away:
+#   - de-indexing the storefront again silently costs every organic signup;
+#   - indexing /signin or /account puts a login page and a private customer
+#     area into search results.
+# So this pins the exact indexable set rather than "robots.txt is not Disallow".
+
+# The apex URLs the sitemap declares -> the local file that must be indexable.
+INDEXABLE_PAGES = {
+    "/": "index.html",
+    "/pricing": "pricing.html",
+    "/help": "help/index.html",
+    "/terms": "terms/index.html",
+    "/privacy": "privacy/index.html",
+}
+
+# Private surfaces. `404.html` is here for the ordinary SEO reason (an indexed
+# error page is a junk result), the other two because they are a credential
+# entry point and a customer's own account view.
+NEVER_INDEXABLE = ("signin.html", "account.html", "404.html")
+
+
+def _static(name: str) -> str:
+    from api.app import STATIC_DIR
+    return (STATIC_DIR / name).read_text(encoding="utf-8")
+
+
+def test_robots_allows_crawling_and_points_at_the_sitemap(client):
+    body = client.get("/robots.txt").text
+    assert "Allow: /" in body, "the apex is back to Disallow — the storefront is de-indexed"
+    assert "Disallow: /\n" not in body, "a blanket Disallow: / is back"
+    assert "Sitemap: https://sportsbookscienceanalytics.com/sitemap.xml" in body
+
+
+def test_robots_disallows_the_private_surfaces(client):
+    """A `noindex` meta alone is NOT enough for these two, and the pair is not
+    redundant: a Disallow'd URL can still be indexed title-only from an inbound
+    link, precisely because the crawler never fetches it and so never sees the
+    meta. Belt AND braces is the correct configuration here."""
+    body = client.get("/robots.txt").text
+    for path in ("/signin", "/account"):
+        assert f"Disallow: {path}" in body, f"{path} is crawlable"
+
+
+@pytest.mark.parametrize("path,filename", sorted(INDEXABLE_PAGES.items()))
+def test_every_sitemap_url_is_actually_indexable(client, path, filename):
+    """A page in the sitemap that carries `noindex` is worse than one that is
+    absent from both: it actively tells the crawler to drop a URL we submitted."""
+    html = _static(filename)
+    assert "noindex" not in html.lower(), (
+        f"{filename} is in the sitemap but carries a noindex meta")
+    assert 'content="index, follow"' in html, (
+        f"{filename} does not declare index, follow")
+
+
+@pytest.mark.parametrize("filename", NEVER_INDEXABLE)
+def test_the_private_pages_keep_their_noindex(client, filename):
+    assert "noindex" in _static(filename).lower(), (
+        f"{filename} lost its noindex meta")
+
+
+def test_the_sitemap_and_the_indexable_set_agree(client):
+    """The two drift independently — a new apex page can land in _PORTFOLIO_URLS
+    without a meta, or get a meta without ever being submitted. Either half
+    alone is a silent SEO bug, so they are asserted against each other."""
+    from api.app import _PORTFOLIO_URLS
+    apex = {u.replace("https://sportsbookscienceanalytics.com", "") or "/"
+            for u in _PORTFOLIO_URLS
+            if u.startswith("https://sportsbookscienceanalytics.com")}
+    assert apex == set(INDEXABLE_PAGES), (
+        f"the apex sitemap URLs and the indexable set disagree: "
+        f"sitemap-only={apex - set(INDEXABLE_PAGES)}, "
+        f"meta-only={set(INDEXABLE_PAGES) - apex}")

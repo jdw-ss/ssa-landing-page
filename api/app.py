@@ -403,11 +403,19 @@ async def account_page():
 
 @app.get("/robots.txt", include_in_schema=False)
 async def robots():
-    # LAUNCH GATE: static/robots.txt is `Disallow: /` until the paywall goes
-    # live. Deliberately left untouched by the SEO pass — flipping it (plus the
-    # noindex metas in static/index.html + static/pricing.html) is the owner's
-    # single launch action. At that moment also add:
-    #     Sitemap: https://sportsbookscienceanalytics.com/sitemap.xml
+    # LAUNCH GATE OPENED 2026-08-16 (John). `static/robots.txt` is now
+    # `Allow: /` + the sitemap reference, and the noindex metas came off
+    # `/`, `/pricing`, `/terms` and `/privacy` (`/help` was already indexable).
+    # The apex was the last host still closed — every league subdomain had been
+    # `Allow: /` with a sitemap since the SEO pass, so the commercial front door
+    # was the only thing search engines could not see, with Stripe live since
+    # 2026-08-08.
+    #
+    # `/signin` and `/account` stay OUT, and deliberately in two ways at once:
+    # a `noindex` meta AND a `Disallow`. Those are not redundant — a Disallow'd
+    # URL can still be indexed title-only from an inbound link precisely because
+    # the crawler never fetches it and so never sees the meta. The indexable set
+    # is exactly `_PORTFOLIO_URLS` below.
     return FileResponse(STATIC_DIR / "robots.txt", media_type="text/plain")
 
 

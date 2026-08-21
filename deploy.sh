@@ -100,7 +100,22 @@ gcloud run deploy "${SERVICE}" \
   --source=. \
   --region="${REGION}" \
   --project="${PROJECT}" \
-  --quiet
+  --quiet || _DEPLOY_RC=$?
+_DEPLOY_RC=${_DEPLOY_RC:-0}
+
+# FAIL LOUD. `gcloud run deploy` failing does NOT stop this script on its own,
+# and the script's exit status is that of its LAST command -- so a deploy that
+# died on expired credentials still exited 0 while the smoke checks below never
+# ran. That masked four separate failed deploys on 2026-08-19, twice being read
+# as success. A blanket `set -e` is the wrong fix here: the IAM grants and the
+# job updates below are deliberately tolerant (`|| true`, "may not exist"), and
+# aborting on those would break working deploys. So the check is targeted at the
+# one command whose failure means nothing shipped.
+if [ "${_DEPLOY_RC}" -ne 0 ]; then
+  echo "❌ gcloud run deploy FAILED (exit ${_DEPLOY_RC}) — nothing was deployed." >&2
+  echo "   Everything below this point would describe the PREVIOUS revision." >&2
+  exit "${_DEPLOY_RC}"
+fi
 
 echo
 echo "── Verify image landed in ${REGION} Artifact Registry ──"

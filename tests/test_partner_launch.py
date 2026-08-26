@@ -25,7 +25,7 @@ from api import partner
 ISSUER = "https://tracker.inplaylabs.io"
 TOOL = "ssa-nfl-model"
 TOOL_MAP = ('{"ssa-nfl-model": {"slug": "nfl", '
-            '"dest": "https://nfl.sportsbookscienceanalytics.com/elomodel/"}}')
+            '"dest": "https://sportsbookscienceanalytics.com/nfl/elomodel/"}}')
 
 
 @pytest.fixture(scope="module")

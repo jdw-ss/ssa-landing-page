@@ -40,7 +40,7 @@ Configuration (env; deploy.sh sanity-checks the required ones):
 
 - ``IPL_JWKS_URL`` / ``IPL_ISSUER``     — partner's JWKS + exact issuer.
 - ``IPL_TOOL_MAP``  — JSON: tool_id -> {"slug": ..., "dest": ...}, e.g.
-  {"ssa-nfl-model": {"slug": "nfl", "dest": "https://nfl.sportsbookscienceanalytics.com/elomodel/"}}
+  {"ssa-nfl-model": {"slug": "nfl", "dest": "https://sportsbookscienceanalytics.com/nfl/elomodel/"}}
   Destinations are OUR config — a launch destination is never taken from
   the request (their contract, and ours: no open redirect).
 - ``IPL_TEST_JWKS_URL`` / ``IPL_TEST_ISSUER`` — optional test lane; absent

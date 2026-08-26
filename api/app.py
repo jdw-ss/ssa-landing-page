@@ -541,17 +541,25 @@ _PORTFOLIO_URLS = (
     "https://sportsbookscienceanalytics.com/help",
     "https://sportsbookscienceanalytics.com/terms",
     "https://sportsbookscienceanalytics.com/privacy",
-    "https://nfl.sportsbookscienceanalytics.com/",
-    "https://nfl.sportsbookscienceanalytics.com/elomodel/",
-    "https://nfl.sportsbookscienceanalytics.com/mockdrafts",
-    "https://ncaaf.sportsbookscienceanalytics.com/",
-    "https://cfl.sportsbookscienceanalytics.com/",
-    "https://nba.sportsbookscienceanalytics.com/",
-    "https://nhl.sportsbookscienceanalytics.com/",
-    "https://soccer.sportsbookscienceanalytics.com/",
-    "https://soccer.sportsbookscienceanalytics.com/epl/",
-    "https://golf.sportsbookscienceanalytics.com/",
+    # League entries mirror each surface's declared canonical EXACTLY
+    # (trailing slash included) — apex-path form since the 2026-08-27
+    # cutover; EPL is deliberately flat, not /soccer/epl.
+    "https://sportsbookscienceanalytics.com/nfl",
+    "https://sportsbookscienceanalytics.com/nfl/elomodel/",
+    "https://sportsbookscienceanalytics.com/nfl/mockdrafts",
+    "https://sportsbookscienceanalytics.com/ncaaf/",
+    "https://sportsbookscienceanalytics.com/cfl/",
+    "https://sportsbookscienceanalytics.com/nba/",
+    "https://sportsbookscienceanalytics.com/nhl/",
+    "https://sportsbookscienceanalytics.com/soccer/",
+    "https://sportsbookscienceanalytics.com/epl/",
+    "https://sportsbookscienceanalytics.com/golf",
 )
+
+# First path segments owned by league backends on the apex host. Their pages
+# (and index metas) live in the league repos; the hub only advertises them.
+# Keep in step with the league entries above AND the LB path matcher.
+_LEAGUE_PATH_PREFIXES = ("nfl", "ncaaf", "cfl", "golf", "nhl", "nba", "soccer", "epl")
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
@@ -572,7 +580,7 @@ async def sitemap_index():
 async def sitemap_portfolio():
     """Every public URL across the portfolio in one urlset. Cross-host entries
     require all hosts to be verified in the same Search Console account — they
-    are, all being subdomains the owner controls."""
+    are, the league surfaces living at apex paths the owner controls."""
     locs = "".join(f"  <url><loc>{u}</loc></url>\n" for u in _PORTFOLIO_URLS)
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'

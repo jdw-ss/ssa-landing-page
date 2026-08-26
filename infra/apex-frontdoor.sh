@@ -19,11 +19,14 @@
 # PATH PLAN (initial):
 #   default        → ssa-landing-be                    (apex hub, unchanged)
 #   /cfl, /cfl/*   → cfl-data-projects/cfl-dash-be     (dual-depth plumbed 08-26)
-#   /elomodel/*    → nfl-data-projects/nfl-elo-be      (native prefix — zero change)
-#   /mockdrafts/*  → nfl-data-projects/nfl-mockdraft-be (native path — zero change)
+#   /elomodel/*    → nfl-data-projects/nfl-elo-be      (native prefix; NOT canonical —
+#                    kept for the app's own generated redirects, /nfl/elomodel is the URL)
 #   /epl/*         → soccer-data-projects/soccer-epl-be (native prefix — zero change)
-# Remaining leagues (/ncaaf /golf /nhl /nba /soccer /nfl) are added by re-running
-# `urlmap` after each repo's dual-depth plumbing lands — see the tracker doc.
+#   /ncaaf /golf /nhl /nba /soccer → each league's dash backend (dual-depth 08-26)
+#   /nfl           → nfl-mockdraft-be (landing + /nfl/mockdrafts); /nfl/elomodel/*
+#                    peels to nfl-elo-be on the longer prefix
+# Flat /mockdrafts was DROPPED (08-26): that SPA's assets are host-rooted, so the
+# flat form on the apex would fetch ssa-landing's statics. /nfl/mockdrafts only.
 #
 # LEGACY 301 HOST RULES are added at cutover time (stage `redirects`, written
 # then), not before: until DNS moves, the old subdomains keep serving normally.
@@ -86,18 +89,30 @@ pathMatchers:
 - name: apex
   defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
   pathRules:
+  - paths: [/ncaaf, /ncaaf/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref ncaaf-data-projects ncaaf-dash-be)
   - paths: [/cfl, /cfl/*]
     service: https://www.googleapis.com/compute/v1/$(be_ref cfl-data-projects cfl-dash-be)
   - paths: [/elomodel, /elomodel/*]
     service: https://www.googleapis.com/compute/v1/$(be_ref nfl-data-projects nfl-elo-be)
-  - paths: [/mockdrafts, /mockdrafts/*]
+  - paths: [/golf, /golf/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects golf-dash-be)
+  - paths: [/nhl, /nhl/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref nhl-data-projects nhl-dash-be)
+  - paths: [/nba, /nba/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref nba-data-projects nba-dash-be)
+  - paths: [/soccer, /soccer/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref soccer-data-projects soccer-hub-be)
+  - paths: [/nfl, /nfl/*]
     service: https://www.googleapis.com/compute/v1/$(be_ref nfl-data-projects nfl-mockdraft-be)
+  - paths: [/nfl/elomodel, /nfl/elomodel/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref nfl-data-projects nfl-elo-be)
   - paths: [/epl, /epl/*]
     service: https://www.googleapis.com/compute/v1/$(be_ref soccer-data-projects soccer-epl-be)
 YAML
   ${G} compute url-maps import "${URLMAP}" --source="${tmp}" --quiet
   rm -f "${tmp}"
-  ok "path matcher imported (default→ssa-landing; /cfl /elomodel /mockdrafts /epl)"
+  ok "path matcher imported (default→ssa-landing; /cfl /ncaaf /golf /nhl /nba /soccer /nfl(+/elomodel) /elomodel /epl)"
 }
 
 dns_auth() {

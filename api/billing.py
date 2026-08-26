@@ -273,12 +273,17 @@ def _scan_changes(customer_id: str, target_sku: str,
     replaceable — items the purchase fully supersedes, either because every
     slug they grant is also granted by the target (NCAAF → Football Bundle,
     anything → All-Access) or because it's the same SKU moving up a term
-    (monthly → 6-month). These get swapped/cancelled with proration.
+    (monthly → 6-month). These are retired with prorate=True once the upgrade
+    checkout is PAID; their unused time lands as customer-balance credit.
 
-    blocked — items the target overlaps but whose term OUTRANKS the target's.
-    Proceeding would either strand prepaid credit (same-SKU 6mo → monthly) or
-    double-bill a slug (6mo NCAAF + monthly bundle covering ncaaf), so the
-    purchase is refused with a pointer at the 6-month target instead.
+    blocked — ONLY the same-SKU term downgrade (6mo NCAAF → monthly NCAAF):
+    that is not an upgrade at all, just a worse term. Until 2026-08-26 any
+    lower-term target was blocked — including a BIGGER package on monthly held
+    against a 6-month sport/bundle — because the old in-place price swap would
+    have stranded the prepaid remainder. The Checkout flow credits it to the
+    customer balance instead, so that combination now simply works (it was
+    the bug report: 'upgrading to a larger package on monthly from a 6-month
+    plan does nothing').
     """
     stripe = _stripe()
     target_slugs = set(ent.SKUS[target_sku]["slugs"])
@@ -309,7 +314,7 @@ def _scan_changes(customer_id: str, target_sku: str,
                 "term": held_term,
                 "label": ent.SKUS[held_sku]["label"],
             }
-            if _TERM_RANK[term] < _TERM_RANK[held_term]:
+            if same_sku and _TERM_RANK[term] < _TERM_RANK[held_term]:
                 blocked.append(entry)
             else:
                 replaceable.append(entry)
@@ -325,12 +330,13 @@ def _superseded(customer_id: str, target_sku: str, term: str = "monthly") -> lis
 
 
 def _raise_blocked(blocked: list[dict], sku: str) -> None:
+    # Only reachable for the same-SKU term downgrade now (see _scan_changes).
     raise HTTPException(
         409,
-        "You're on the 6-month term for " +
+        "You're prepaid on the 6-month term for " +
         ", ".join(b["label"] for b in blocked) +
-        f" — choose the 6-month {ent.SKUS[sku]['label']} instead, so your "
-        "prepaid time counts toward it",
+        " — switching it to monthly isn't an upgrade. It renews monthly "
+        "automatically only if you cancel the 6-month term first.",
     )
 
 
@@ -369,28 +375,12 @@ def plan_change_preview(user: dict, sku: str, term: str = "monthly") -> dict:
             raise HTTPException(409, "Your current packages already include this")
         return {"kind": "new", "sku": sku, "term": term, "replaces": []}
 
-    stripe = _stripe()
-    primary = replaceable[0]
-    details = {
-        "items": [{"id": primary["item_id"], "price": price_id}],
-        "proration_behavior": "always_invoice",
-    }
-    if primary["term"] != term:
-        # Interval changes start a fresh cycle at the moment of purchase; the
-        # unused remainder of the old cycle becomes credit on this invoice.
-        details["billing_cycle_anchor"] = "now"
-    try:
-        preview = stripe.Invoice.create_preview(
-            customer=customer_id,
-            subscription=primary["subscription_id"],
-            subscription_details=details,
-        )
-        due_now = field(preview, "amount_due", 0) or 0
-    except Exception as exc:
-        logger.error("Proration preview failed for %s -> %s/%s: %s",
-                     user["uid"], sku, term, exc)
-        raise HTTPException(503, "Could not price that change right now") from None
-
+    # Upgrades now settle through Checkout (John, 2026-08-26 — see
+    # apply_plan_change), so the quote is the plain package price: the member
+    # pays the new plan at checkout, and the unused time on every replaced
+    # subscription is cancelled WITH proration, landing as credit on their
+    # customer balance against future invoices. No proration preview call —
+    # the old create_preview was also a 503 source when Stripe balked.
     then_cents = ent.display_cents(sku, term)
     return {
         "kind": "upgrade",
@@ -398,28 +388,35 @@ def plan_change_preview(user: dict, sku: str, term: str = "monthly") -> dict:
         "term": term,
         "label": ent.SKUS[sku]["label"],
         "replaces": [s["label"] for s in replaceable],
-        # Extras beyond the primary are cancelled with proration on the same
-        # invoice — their labels let the UI say "plus credit for X".
-        "extra_credit_for": [s["label"] for s in replaceable[1:]],
-        "due_now_cents": due_now,
+        "credited": [s["label"] for s in replaceable],
+        "due_now_cents": then_cents,
         "then_cents": then_cents,
         "renews_every": _TERM_NOUN[term],
     }
 
 
 def apply_plan_change(user: dict, sku: str, term: str = "monthly") -> dict:
-    """Swap the customer onto (`sku`, `term`) in place, prorated.
+    """Start an upgrade: a NEW Checkout session for (`sku`, `term`) that, once
+    PAID, retires every superseded subscription (John, 2026-08-26).
 
-    Replaces the price on the superseded subscription's EXISTING item — passing
-    a bare price without the item id would ADD a second item and bill both,
-    which is the exact bug this replaces.
+    This replaces the in-place `Subscription.modify` price swap, which had two
+    live defects its design could not patch around:
 
-    Order matters: any FURTHER superseded subscriptions (e.g. CFL + Golf both
-    giving way to All-Access) are cancelled FIRST with prorate=True, which
-    parks their unused time as pending invoice items; the primary swap's
-    always_invoice invoice then sweeps those credits up, so the customer sees
-    one invoice with every credit on it. Cancelling after the swap would defer
-    those credits to the NEXT renewal — up to six months out on the new terms.
+    - It charged the stored card the moment the button was clicked — one
+      misclick was a real charge with no confirmation screen.
+    - Stripe discounts ride the SUBSCRIPTION, not the price, so a promo code
+      redeemed on a cheap single-sport plan silently carried onto the swapped-in
+      All-Access price — a working exploit, and exactly how one customer got a
+      sport-level code applied to the whole site.
+
+    Checkout closes both: the member confirms card and price explicitly, and
+    the new subscription starts with NO inherited discount
+    (`allow_promotion_codes` is off for upgrade sessions — codes are for new
+    purchases). The replaced subscriptions are NOT touched here: the session
+    carries their ids in metadata, and the webhook cancels them with
+    `prorate=True` only after `checkout.session.completed`, so an abandoned
+    checkout changes nothing. Their unused time becomes credit on the customer
+    balance, consumed by future invoices of the new plan.
     """
     plan = plan_change_preview(user, sku, term)
     if plan["kind"] != "upgrade":
@@ -435,25 +432,25 @@ def apply_plan_change(user: dict, sku: str, term: str = "monthly") -> dict:
     price_id = price_id_for_sku(sku, term)
     stripe = _stripe()
 
-    primary = replaceable[0]
-    for extra in replaceable[1:]:
-        stripe.Subscription.cancel(extra["subscription_id"], prorate=True)
-
-    modify_kwargs = {}
-    if primary["term"] != term:
-        modify_kwargs["billing_cycle_anchor"] = "now"
-    stripe.Subscription.modify(
-        primary["subscription_id"],
-        items=[{"id": primary["item_id"], "price": price_id}],
-        proration_behavior="always_invoice",
-        metadata={"uid": user["uid"], "sku": sku, "term": term},
-        **modify_kwargs,
+    replaced_ids = sorted({s["subscription_id"] for s in replaceable})
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        customer=customer_id,
+        line_items=[{"price": price_id, "quantity": 1}],
+        # No promo codes on upgrades — see the docstring. The discount attached
+        # to the OLD subscription dies with it at cancellation.
+        allow_promotion_codes=False,
+        payment_method_collection="if_required",
+        client_reference_id=user["uid"],
+        metadata={"upgrade_replaces": ",".join(replaced_ids)},
+        subscription_data={"metadata": {"uid": user["uid"], "sku": sku, "term": term}},
+        integration_identifier="ssa-paywall-checkout-kvqhmwrz",
+        success_url=f"{_base_url()}/account?upgrade=success",
+        cancel_url=f"{_base_url()}/pricing?upgrade=canceled",
     )
-
-    # Don't wait for the webhook — the customer is looking at the page now.
-    # The webhook will recompute again and converge to the same answer.
-    _recompute(user["uid"], customer_id)
-    return {"status": "ok", "sku": sku, "term": term,
+    logger.info("Upgrade checkout for %s: %s/%s replaces %s", user["uid"], sku,
+                term, replaced_ids)
+    return {"url": session.url, "sku": sku, "term": term,
             "replaced": [s["label"] for s in replaceable]}
 
 
@@ -563,6 +560,22 @@ def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
         uid = field(obj, "client_reference_id")
         customer_id = field(obj, "customer")
         if uid and customer_id:
+            # Upgrade sessions carry the superseded subscription ids; retire
+            # them only now — after payment — so an abandoned checkout leaves
+            # the customer exactly where they were. prorate=True parks each
+            # one's unused time as credit on the customer balance. Idempotent:
+            # webhook redelivery meets already-cancelled subscriptions, which
+            # is success, not an error. Cancel BEFORE recompute so the
+            # entitlement write reflects the post-upgrade state in one pass.
+            replaces = field(field(obj, "metadata", {}) or {}, "upgrade_replaces", "") or ""
+            for sub_id in [x for x in replaces.split(",") if x]:
+                try:
+                    _stripe().Subscription.cancel(sub_id, prorate=True)
+                    logger.info("Upgrade %s: cancelled superseded %s",
+                                field(obj, "id"), sub_id)
+                except Exception as exc:  # noqa: BLE001 — already-cancelled is fine
+                    logger.info("Upgrade %s: %s not cancelled (%s) — assuming "
+                                "already retired", field(obj, "id"), sub_id, exc)
             email = field(field(obj, "customer_details", {}), "email", "") or ""
             ent.set_customer(uid, email.lower(), customer_id)
             _recompute(uid, customer_id)

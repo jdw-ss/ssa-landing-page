@@ -355,8 +355,9 @@
             b.classList.add("show");
         }
 
-        if (new URLSearchParams(location.search).get("checkout") === "canceled") {
-            showBanner("Checkout canceled — you haven't been charged.");
+        const qs = new URLSearchParams(location.search);
+        if (qs.get("checkout") === "canceled" || qs.get("upgrade") === "canceled") {
+            showBanner("Checkout canceled — you haven't been charged and your current plan is unchanged.");
         }
 
         function held(slugs, wanted) {
@@ -433,19 +434,21 @@
         }
 
         function renderUpgradeConfirm(btn, plan) {
+            // Upgrades settle through a fresh Checkout (2026-08-26): nothing
+            // is charged and nothing is cancelled until the member confirms
+            // card and price on Stripe's page. The old subscription's unused
+            // time is credited to the account balance after payment.
             const per = plan.renews_every === "6-month" ? "/6 months" : "/month";
-            const extras = (plan.extra_credit_for || []).length
-                ? " Unused time on " + plan.extra_credit_for.join(", ") +
-                  " is credited on the same invoice."
-                : "";
             const box = document.createElement("div");
             box.className = "upg";
             box.innerHTML =
                 "Replaces " + plan.replaces.join(", ") + ". " +
-                '<span class="amt">' + fmt(plan.due_now_cents) + "</span> due now, prorated; " +
-                "then " + fmt(plan.then_cents) + per + "." + extras +
+                "You'll confirm " + '<span class="amt">' + fmt(plan.due_now_cents) +
+                "</span>" + per + " at checkout — nothing changes until you do. " +
+                "Unused time on " + plan.replaces.join(", ") +
+                " is credited to your account and applies to future invoices." +
                 '<div class="upg-actions">' +
-                '<button class="btn btn-primary" data-confirm="' + plan.sku + '">Confirm upgrade</button>' +
+                '<button class="btn btn-primary" data-confirm="' + plan.sku + '">Continue to checkout</button>' +
                 '<button class="btn" data-dismiss>Keep current</button>' +
                 "</div>";
             btn.replaceWith(box);
@@ -453,7 +456,7 @@
             box.querySelector("[data-confirm]").addEventListener("click", async (e) => {
                 const b = e.target;
                 b.disabled = true;
-                b.textContent = "Upgrading…";
+                b.textContent = "Opening checkout…";
                 try {
                     const resp = await fetch("/api/billing/change", {
                         method: "POST",
@@ -462,13 +465,14 @@
                         body: JSON.stringify({ sku: plan.sku, term: TERM }),
                     });
                     if (resp.ok) {
-                        location.href = "/account?upgrade=success";
+                        const { url } = await resp.json();
+                        location.href = url;
                         return;
                     }
                     const body = await resp.json().catch(() => ({}));
-                    showBanner(body.detail || "Couldn't apply the upgrade. Try again in a moment.");
+                    showBanner(body.detail || "Couldn't start the upgrade checkout. Try again in a moment.");
                 } catch (err) {
-                    showBanner("Network error applying the upgrade. Try again in a moment.");
+                    showBanner("Network error starting the upgrade. Try again in a moment.");
                 }
                 renderGrids();
             });

@@ -249,23 +249,31 @@ def test_monthly_to_six_month_same_sku_is_an_upgrade(monkeypatch):
     assert blocked == []
 
 
-def test_six_month_holder_cannot_drop_to_a_monthly_target(monkeypatch):
-    """Same SKU downward, and the sneakier shape: 6-month NCAAF vs monthly
-    bundle. Both would strand prepaid credit — both are blocked."""
+def test_term_policy_blocks_only_the_same_sku_downgrade(monkeypatch):
+    """Same-SKU 6mo → monthly is a plain downgrade and stays blocked. A BIGGER
+    package on monthly held against a 6-month plan is a real upgrade and now
+    proceeds (2026-08-26): the Checkout flow cancels the old subscription with
+    prorate=True after payment, so the prepaid remainder becomes customer-
+    balance credit instead of stranded money. This exact combination was the
+    bug report — the old policy blocked it and the pricing page looked like it
+    'did nothing'."""
     monkeypatch.setenv("STRIPE_PRICE_SPORT_NCAAF_6MO", "price_ncaaf_6")
     monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
         _six_sub("sub_1", "active", "price_ncaaf_6"),
     ]))
     replaceable, blocked = billing._scan_changes("cus_1", "sport_ncaaf", "monthly")
     assert replaceable == [] and [b["sku"] for b in blocked] == ["sport_ncaaf"]
+    # Cross-SKU upgrade on a lower term: replaceable now, not blocked.
     replaceable, blocked = billing._scan_changes("cus_1", "bundle_football", "monthly")
-    assert replaceable == [] and [b["sku"] for b in blocked] == ["sport_ncaaf"]
-    # The 6-month bundle is the sanctioned path.
+    assert [s["sku"] for s in replaceable] == ["sport_ncaaf"] and blocked == []
     replaceable, blocked = billing._scan_changes("cus_1", "bundle_football", "6mo")
     assert [s["sku"] for s in replaceable] == ["sport_ncaaf"] and blocked == []
 
 
-def test_blocked_checkout_points_at_the_six_month_target(monkeypatch):
+def test_overlapping_checkout_is_routed_to_the_upgrade_flow(monkeypatch):
+    """Plain checkout of a package that supersedes a held one must refuse and
+    point at the upgrade flow (which retires the old subscription), never
+    quietly create a second, parallel-billing subscription."""
     monkeypatch.setenv("STRIPE_PRICE_SPORT_NCAAF_6MO", "price_ncaaf_6")
     monkeypatch.setenv("STRIPE_PRICE_BUNDLE_FOOTBALL", "price_bundle_m")
     monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
@@ -276,44 +284,88 @@ def test_blocked_checkout_points_at_the_six_month_target(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         billing.create_checkout_session({"uid": "u", "email": "a@b.c"}, "bundle_football")
     assert exc.value.status_code == 409
-    assert "6-month" in str(exc.value.detail)
+    assert "upgrade" in str(exc.value.detail).lower()
 
 
-def test_apply_plan_change_cancels_extras_first_and_resets_anchor_on_term_change(monkeypatch):
-    """Two invariants of the swap: extras' proration credits must land on the
-    SAME invoice as the charge (cancel before modify — pending invoice items get
-    swept by the always_invoice modify), and an interval change starts a fresh
-    cycle (billing_cycle_anchor=now) while a same-interval change must NOT."""
+def test_apply_plan_change_creates_checkout_and_touches_nothing(monkeypatch):
+    """The upgrade path (2026-08-26) must be a pure Checkout-session create:
+    no Subscription.modify, no Subscription.cancel, no charge — one misclick
+    used to be a real charge on the stored card. The session must carry every
+    superseded subscription id in metadata (the webhook's cancel list) and
+    must NOT accept promotion codes: a code redeemed on a cheap plan riding
+    onto All-Access was a working exploit."""
     monkeypatch.setenv("STRIPE_PRICE_SPORT_CFL", "price_cfl_m")
     monkeypatch.setenv("STRIPE_PRICE_SPORT_GOLF", "price_golf_m")
     monkeypatch.setenv("STRIPE_PRICE_ALL_ACCESS_6MO", "price_all_6")
-    calls = []
+    forbidden = []
+    sessions = []
     subs = [
         _Sub("sub_cfl", "active", ["price_cfl_m"]),
         _Sub("sub_golf", "active", ["price_golf_m"]),
     ]
     fake = _fake_stripe(subs)
-    fake.Subscription.cancel = lambda sid, **kw: calls.append(("cancel", sid, kw))
-    fake.Subscription.modify = lambda sid, **kw: calls.append(("modify", sid, kw))
-    fake.Invoice = types.SimpleNamespace(
-        create_preview=lambda **kw: {"amount_due": 12345})
+    fake.Subscription.cancel = lambda *a, **k: forbidden.append("cancel")
+    fake.Subscription.modify = lambda *a, **k: forbidden.append("modify")
+    fake.checkout = types.SimpleNamespace(Session=types.SimpleNamespace(
+        create=lambda **kw: sessions.append(kw) or types.SimpleNamespace(
+            url="https://checkout.stripe.com/session_x")))
     monkeypatch.setattr(billing, "_stripe", lambda: fake)
     monkeypatch.setattr(ent, "get_customer",
                         lambda uid: {"stripe_customer_id": "cus_1"})
-    monkeypatch.setattr(billing, "_recompute", lambda uid, cid: None)
+    monkeypatch.setattr(ent, "get_entitlements",
+                        lambda uid: {"slugs": ["cfl", "golf"], "packages": []})
 
     result = billing.apply_plan_change({"uid": "u", "email": "a@b.c"},
                                        "all_access", "6mo")
 
-    assert result["status"] == "ok" and result["term"] == "6mo"
-    assert [c[0] for c in calls] == ["cancel", "modify"], \
-        "extras must be cancelled BEFORE the primary swap"
-    cancel_call, modify_call = calls
-    assert cancel_call[2].get("prorate") is True
-    assert modify_call[2]["items"][0]["price"] == "price_all_6"
-    assert modify_call[2]["metadata"]["term"] == "6mo"
-    # monthly → 6mo is an interval change: fresh cycle from the purchase moment.
-    assert modify_call[2].get("billing_cycle_anchor") == "now"
+    assert forbidden == [], "upgrade start must not modify or cancel anything"
+    assert result["url"] == "https://checkout.stripe.com/session_x"
+    assert len(sessions) == 1
+    kw = sessions[0]
+    assert kw["allow_promotion_codes"] is False
+    replaced = set(kw["metadata"]["upgrade_replaces"].split(","))
+    assert replaced == {"sub_cfl", "sub_golf"}
+    assert kw["subscription_data"]["metadata"]["sku"] == "all_access"
+
+
+def test_webhook_retires_replaced_subs_after_paid_upgrade(monkeypatch):
+    """checkout.session.completed with upgrade_replaces metadata must cancel
+    each listed subscription prorate=True BEFORE recomputing entitlements, and
+    an already-cancelled subscription (webhook redelivery) is success, not an
+    abort — the remaining ids must still be processed."""
+    cancels = []
+    recomputes = []
+
+    def cancel(sid, **kw):
+        if sid == "sub_gone":
+            raise RuntimeError("No such subscription")
+        cancels.append((sid, kw.get("prorate")))
+
+    fake = types.SimpleNamespace(
+        Subscription=types.SimpleNamespace(cancel=cancel),
+        Webhook=types.SimpleNamespace(construct_event=lambda p, sig, sec: {
+            "type": "checkout.session.completed",
+            "data": {"object": {
+                "id": "cs_1",
+                "client_reference_id": "uid_1",
+                "customer": "cus_1",
+                "customer_details": {"email": "A@B.C"},
+                "metadata": {"upgrade_replaces": "sub_gone,sub_old"},
+            }},
+        }),
+    )
+    monkeypatch.setattr(billing, "_stripe", lambda: fake)
+    monkeypatch.setattr(ent, "set_customer", lambda *a, **k: None)
+    monkeypatch.setattr(billing, "_recompute",
+                        lambda uid, cid: recomputes.append((uid, cid)))
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_test")
+
+    out = billing.handle_webhook(b"{}", "sig")
+
+    assert out["received"] is True
+    assert cancels == [("sub_old", True)], "surviving sub cancelled prorated"
+    assert recomputes == [("uid_1", "cus_1")]
+
 
 
 def test_recompute_stamps_the_term_on_each_package(monkeypatch):

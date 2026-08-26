@@ -386,10 +386,12 @@ async def billing_change_preview(
 
 @app.post("/api/billing/change")
 async def billing_change(body: _CheckoutBody, user: dict = Depends(require_session_user)):
-    """Swap the customer onto (`sku`, `term`) in place, prorated, cancelling
-    whatever it supersedes. Used instead of Checkout when the purchase is an
-    upgrade, so the old package stops billing rather than running alongside the
-    new one."""
+    """Start an upgrade checkout: returns the Stripe Checkout URL for the new
+    plan. Nothing is charged or cancelled here — the webhook retires the
+    superseded subscriptions only after checkout.session.completed, so an
+    abandoned checkout leaves the customer untouched (2026-08-26; the previous
+    in-place prorated swap charged the stored card instantly and let promo
+    discounts ride onto the bigger plan)."""
     result = await asyncio.to_thread(
         billing.apply_plan_change, user, body.sku, body.term)
     return JSONResponse(result, headers={"Cache-Control": "private, no-store"})

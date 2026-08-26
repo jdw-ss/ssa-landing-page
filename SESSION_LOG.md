@@ -6,6 +6,18 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-08-26 (later) — partner chip shipped to every partner-visible surface
+
+"inplayLABS Member" chip (account.js) deployed: apex, nfl.SSA root
+(nfl-dashboard — the shared host's owner, initially missed because the ELO
+app's static lives under /elomodel while the root is the mock-draft
+service's), nfl/elomodel, ncaaf, cfl — served copies diff-verified IDENTICAL
+to the repo. golf/nhl/soccer-hub copies are committed and ride their next
+regular deploy (partner members never reach those surfaces). Chip replaces
+the "Sign in" trap that would have Google-authed a partner member into a
+fresh entitlement-less account, replacing their partner session. Prefix
+consistency with api/partner.py pinned in tests (67 green).
+
 ## 2026-08-26 — inplayLABS bridge ARMED (live, both lanes)
 
 **Agent**: claude-fable-5

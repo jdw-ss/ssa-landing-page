@@ -203,10 +203,15 @@ def test_the_sitemap_and_the_indexable_set_agree(client):
     """The two drift independently — a new apex page can land in _PORTFOLIO_URLS
     without a meta, or get a meta without ever being submitted. Either half
     alone is a silent SEO bug, so they are asserted against each other."""
-    from api.app import _PORTFOLIO_URLS
+    from api.app import _PORTFOLIO_URLS, _LEAGUE_PATH_PREFIXES
     apex = {u.replace("https://sportsbookscienceanalytics.com", "") or "/"
             for u in _PORTFOLIO_URLS
             if u.startswith("https://sportsbookscienceanalytics.com")}
+    # Since the 2026-08-27 apex-path cutover the league surfaces share this
+    # host but serve their own shells (and index metas) from their own repos
+    # — the hub-side meta guard applies only to hub pages.
+    apex = {path for path in apex
+            if path.lstrip("/").split("/")[0] not in _LEAGUE_PATH_PREFIXES}
     assert apex == set(INDEXABLE_PAGES), (
         f"the apex sitemap URLs and the indexable set disagree: "
         f"sitemap-only={apex - set(INDEXABLE_PAGES)}, "

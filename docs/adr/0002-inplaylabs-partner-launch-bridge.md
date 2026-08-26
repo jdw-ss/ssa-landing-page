@@ -77,8 +77,12 @@ touching six league repos or the Stripe machinery.
 - **Revocation webhook**: if inplayLABS offers signed cancellation webhooks,
   add an endpoint to delete the entitlement immediately instead of coasting
   to `expires_at`. The sweep remains as backstop either way.
-- **Header identity polish**: an email-free identity chip for partner
-  members (account.js change, all-surfaces sync) — deferred.
+- ~~Header identity polish~~ **DONE 2026-08-26**: `account.js` renders an
+  inert "inplayLABS Member" chip for `ipl_`/`ipltest_` uids instead of
+  "Sign in" — which was more than cosmetic: the sign-in link would have
+  Google-authed a partner member into a fresh entitlement-less account,
+  replacing their partner session. Synced to all 8 vendored copies;
+  prefix consistency pinned by `tests/test_partner_launch.py`.
 
 ## Rejected
 

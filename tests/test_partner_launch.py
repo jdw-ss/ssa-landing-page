@@ -258,3 +258,22 @@ def test_routes_registered_and_fail_closed(monkeypatch, keypair):
     r = client.post("/partner/inplaylabs/sweep",
                     headers={"x-ipl-sweep-token": "wrong"})
     assert r.status_code == 403
+
+
+# ── The account widget's partner branch tracks partner.py's namespaces ──────
+
+def test_account_widget_prefixes_match_partner_module():
+    """account.js renders the partner chip for uids matching /^ipl(test)?_/.
+    If UID_PREFIX/TEST_UID_PREFIX ever change in api/partner.py, the widget
+    (vendored to every surface) silently regresses to the "Sign in" trap for
+    partner members — this pin makes that a test failure instead."""
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parent.parent
+          / "static" / "js" / "account.js").read_text()
+    assert "/^ipl(test)?_/" in js
+    assert "renderPartnerMember" in js
+    # the regex must actually cover both python-side prefixes
+    import re
+    for prefix in (partner.UID_PREFIX, partner.TEST_UID_PREFIX):
+        assert re.match(r"^ipl(test)?_", prefix + "abc"), prefix

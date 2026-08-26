@@ -65,6 +65,13 @@
         "  align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; }",
         ".acct-btn-avatar img { width: 100%; height: 100%; object-fit: cover; }",
         ".acct-upsell { color: var(--accent) !important; font-weight: 600; }",
+        // Partner chip (inplayLABS members): identity comes from the launch
+        // bridge, not a Google account. Chrome resolves through tokens per
+        // DESIGN_SYSTEM — no hex literals here.
+        ".acct-partner-chip { display: inline-flex; align-items: center; gap: 6px;",
+        "  padding: 6px 12px; border: 1px solid var(--accent); border-radius: 999px;",
+        "  color: var(--accent); font-size: 12px; font-weight: 600;",
+        "  cursor: default; user-select: none; white-space: nowrap; }",
     ].join("\n");
     document.head.appendChild(css);
 
@@ -94,6 +101,26 @@
                 btn.focus();
             }
         });
+    }
+
+    // inplayLABS partner members (ssa-landing-page ADR-0002): synthetic
+    // ipl_*/ipltest_* uids with NO email — the generic branch below would
+    // render "Sign in", which is worse than cosmetic: a partner member who
+    // clicks it Google-auths into a fresh, entitlement-less SSA account and
+    // REPLACES their partner session, losing access until they relaunch.
+    // The chip removes that affordance entirely. Inert on purpose: their
+    // account, billing and support all live on inplayLABS, not here. The
+    // prefixes must match api/partner.py's UID_PREFIX/TEST_UID_PREFIX
+    // (pinned by the apex repo's tests).
+    function renderPartnerMember(uid) {
+        const chip = document.createElement("span");
+        chip.className = "acct-partner-chip";
+        chip.textContent = uid.indexOf("ipltest_") === 0
+            ? "inplayLABS Member · test"
+            : "inplayLABS Member";
+        chip.title = "Access provided through the inplayLABS partnership";
+        btn.replaceWith(chip);
+        menu.remove();
     }
 
     // Signed out: no dropdown at all. Replace the control with a direct link so
@@ -172,6 +199,10 @@
         }
 
         const user = window.Auth.user();
+        if (user && !user.email && /^ipl(test)?_/.test(user.uid || "")) {
+            renderPartnerMember(user.uid);
+            return;
+        }
         if (!user || !user.email) { renderSignedOut(); return; }
         window.__ssaPhoto = user.photoURL || "";
 

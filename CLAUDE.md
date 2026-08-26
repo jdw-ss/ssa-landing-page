@@ -68,9 +68,11 @@ None.
   `/api/billing/webhook` (events: `checkout.session.completed`,
   `customer.subscription.created/updated/deleted`)
 - **inplayLABS** (partner platform, ADR-0002) — INBOUND launch assertions
-  (signed JWTs) at `POST /partner/inplaylabs/launch` (+ `/launch-test`,
-  `/sweep`). We fetch their JWKS over HTTPS; nothing flows out. Dormant
-  (routes 404) until `IPL_JWKS_URL`/`IPL_ISSUER`/`IPL_TOOL_MAP` are set.
+  (signed JWTs, ES256) at `POST /partner/inplaylabs/launch` (+ `/launch-test`,
+  `/sweep`). We fetch their JWKS over HTTPS; nothing flows out. ARMED
+  2026-08-26: prod iss `https://tracker.inplaylabs.io/` (trailing slash
+  significant), test iss `.../test`, JWKS on their Supabase functions host —
+  exact strings in `docs/INPLAYLABS_ONBOARDING.md`.
   Partner members are synthetic `ipl_*` Firebase uids with time-boxed
   entitlements (`source: inplaylabs`, 7-day window) — see the gotcha.
 - **Firebase Auth** (`ssa-auth-71d16`) — id-token verify, session-cookie

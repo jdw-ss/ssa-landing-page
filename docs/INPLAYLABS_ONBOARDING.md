@@ -8,7 +8,7 @@ to negotiate and marked TBD. Architecture on our side: ADR-0002.
 
 - **Display name**: Sportsbook Science Analytics — <Sport> Model
 - **Description / icon**: per sport; copy + icon TBD (John).
-- **Support contact**: jdwilsongame@gmail.com (or support@ alias, TBD).
+- **Support contact**: jdwilson@sportsbookscienceanalytics.com (or support@ alias, TBD).
 - **Production HTTPS URL**: https://sportsbookscienceanalytics.com
 - **Tool IDs** (lowercase, one per sport, launch order TBD by John):
   - `ssa-nfl-model` — NFL ELO model (public surface `nfl.sportsbookscienceanalytics.com/elomodel/`)
@@ -64,3 +64,39 @@ to negotiate and marked TBD. Architecture on our side: ADR-0002.
 | No tokens/PII in URLs or logs | form POST body; logs carry hashed jti + hashed uid only |
 | Test vs prod separation | separate issuer/JWKS/uid-prefix/window; path-separated endpoints |
 | Support + outage ownership | John; incident contact above |
+
+
+---
+
+## Received from inplayLABS (2026-08-26) — configuration of record
+
+- **Prod**: iss `https://tracker.inplaylabs.io/` (trailing slash is part of
+  the exact string) · JWKS
+  `https://elejteklxhknthfzovhv.supabase.co/functions/v1/partner-jwks?lane=prod`
+  · kid `ipl-partner-prod-2026-08` · ES256
+- **Test**: iss `https://tracker.inplaylabs.io/test` · JWKS `...?lane=test`
+  · kid `ipl-partner-test-2026-08` · ES256
+- Assertion: iat = now−10s, exp = now+90s; sub is opaque and per-lane
+  (test subjects prefixed, no prod collision). POST form field `assertion`.
+- Revocation: entitlement re-checked at every launch on their side; our
+  7-day (1-day test) window is the outer bound. Signed cancellation webhook
+  offered later, not required for v1.
+
+**Preflight 2026-08-26**: both JWKS lanes fetched via PyJWKClient, kids
+resolved, EC P-256 keys parsed, and a forged ES256 token carrying their kid
+was rejected with InvalidSignatureError on both lanes — fetch, kid
+selection, key parse, and signature enforcement all proven against their
+live endpoints before activation.
+
+## Registration block sent back (their "what we need from you")
+
+- Tool IDs (register all three; per-tool go-live at John's pace):
+  `ssa-nfl-model`, `ssa-ncaaf-model`, `ssa-cfl-model`
+- Production launch URL (all tools):
+  `POST https://sportsbookscienceanalytics.com/partner/inplaylabs/launch`
+- Non-production launch URL:
+  `POST https://sportsbookscienceanalytics.com/partner/inplaylabs/launch-test`
+- Test account: none needed on our side — test-lane assertions
+  auto-provision isolated `ipltest_*` identities with a 1-day window. Any
+  member of your QA team launching from your test lane exercises the full
+  path, including a real session on the league site.

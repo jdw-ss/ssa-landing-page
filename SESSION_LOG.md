@@ -6,6 +6,37 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-08-26 — inplayLABS bridge ARMED (live, both lanes)
+
+**Agent**: claude-fable-5
+
+Their side shipped; ours is now active. Config of record (exact strings) in
+`docs/INPLAYLABS_ONBOARDING.md`.
+
+- Preflight BEFORE arming: PyJWKClient fetched both JWKS lanes, resolved both
+  kids, parsed the EC P-256 keys, and rejected a forged ES256 token carrying
+  their kid — locally and then IN PRODUCTION (Cloud Run log shows
+  `InvalidSignatureError` for a forged test-lane assertion; browser saw only
+  the generic 403). The prod issuer carries a TRAILING SLASH
+  (`https://tracker.inplaylabs.io/`) — it is part of the exact-match string.
+- Service env: IPL_JWKS_URL / IPL_ISSUER / IPL_TEST_JWKS_URL /
+  IPL_TEST_ISSUER / IPL_TOOL_MAP set via `--update-env-vars` (custom `^|^`
+  delimiter — the tool map JSON contains commas); IPL_SWEEP_TOKEN bound from
+  Secret Manager `ipl-sweep-token` (golf-data-projects). Revision 00028.
+- Live flips verified: launch + launch-test 404→403-on-garbage; sweep 403
+  without / 200 with token (`{"entitlements_pruned":0,"jti_pruned":0}`);
+  apex health unaffected.
+- Cloud Scheduler `ipl-entitlement-sweep` created (us-east1, daily 4:20 AM
+  ET) and mirrored in deploy.sh as describe-else-create gated on the secret
+  (the 2026-08-25 CFL lesson: schedulers live in deploy scripts).
+- Registration block sent to inplayLABS: tool_ids ssa-nfl-model /
+  ssa-ncaaf-model / ssa-cfl-model, both launch URLs, no test account needed
+  (test-lane assertions auto-provision `ipltest_*`).
+
+Next: their QA runs the go-live checklist over the test lane; first real
+member launch lands a session + 7-day `nfl`/`ncaaf`/`cfl` entitlement with
+zero further changes on our side. Commercial terms still John↔inplayLABS.
+
 ## 2026-08-25 — inplayLABS partner-launch bridge (built, deployed dark)
 
 **Agent**: claude-fable-5

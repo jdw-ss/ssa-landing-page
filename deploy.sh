@@ -138,6 +138,30 @@ for key in FIREBASE_API_KEY FIREBASE_PROJECT_ID FIREBASE_AUTH_DOMAIN FIREBASE_AP
 done
 
 echo
+echo ""
+echo "── Ensure the inplayLABS sweep scheduler (ADR-0002) ──"
+# Prunes lapsed partner entitlements daily. Describe-else-create so a
+# hand-tuned cadence survives deploys (portfolio rule since the CFL
+# scheduler was found living only in the console, 2026-08-25). Skipped
+# entirely until the ipl-sweep-token secret exists — the bridge is dormant
+# without its env config anyway, and an early scheduler would just 404.
+if gcloud secrets describe ipl-sweep-token --project="${PROJECT}" >/dev/null 2>&1; then
+  if gcloud scheduler jobs describe ipl-entitlement-sweep --location="${REGION}" --project="${PROJECT}" >/dev/null 2>&1; then
+    echo "  ✓ sweep scheduler exists (leaving cadence as-is)"
+  else
+    SWEEP_TOKEN="$(gcloud secrets versions access latest --secret=ipl-sweep-token --project="${PROJECT}")"
+    gcloud scheduler jobs create http ipl-entitlement-sweep \
+      --location="${REGION}" --project="${PROJECT}" \
+      --schedule="20 4 * * *" --time-zone="America/New_York" \
+      --uri="https://sportsbookscienceanalytics.com/partner/inplaylabs/sweep" \
+      --http-method=POST \
+      --headers="x-ipl-sweep-token=${SWEEP_TOKEN}" \
+      && echo "  ✓ sweep scheduler created (daily 4:20 AM ET)"
+  fi
+else
+  echo "  – ipl-sweep-token secret absent; sweep scheduler skipped (bridge dormant)"
+fi
+
 echo "── Health check (apex + www + API) ──"
 # -L: www 301s to the apex by design (SEO canonical host, 2026-08-13) — follow
 # the redirect so the check still validates end-to-end content delivery.

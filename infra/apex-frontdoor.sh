@@ -83,8 +83,24 @@ urlmap() {
 name: ${URLMAP}
 defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
 hostRules:
-- hosts: [${APEX}, www.${APEX}]
+- hosts: [${APEX}]
   pathMatcher: apex
+- hosts: [www.${APEX}]
+  pathMatcher: www-redirect
+- hosts: [nfl.${APEX}]
+  pathMatcher: rd-nfl
+- hosts: [ncaaf.${APEX}]
+  pathMatcher: rd-ncaaf
+- hosts: [cfl.${APEX}]
+  pathMatcher: rd-cfl
+- hosts: [golf.${APEX}]
+  pathMatcher: rd-golf
+- hosts: [nhl.${APEX}]
+  pathMatcher: rd-nhl
+- hosts: [nba.${APEX}]
+  pathMatcher: rd-nba
+- hosts: [soccer.${APEX}]
+  pathMatcher: rd-soccer
 pathMatchers:
 - name: apex
   defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
@@ -109,6 +125,35 @@ pathMatchers:
     service: https://www.googleapis.com/compute/v1/$(be_ref nfl-data-projects nfl-elo-be)
   - paths: [/epl, /epl/*]
     service: https://www.googleapis.com/compute/v1/$(be_ref soccer-data-projects soccer-epl-be)
+# Legacy public hosts 301 to the apex path form (SEO equity transfer; DNS for
+# these hosts stays FOREVER — it repoints here, it is never deleted). Inert
+# until each host's DNS actually points at this LB, so safe to carry early.
+# www: host swap only, path preserved.
+- name: www-redirect
+  defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
+  routeRules:
+  - priority: 1
+    matchRules: [{prefixMatch: /}]
+    urlRedirect: {hostRedirect: ${APEX}, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}
+$(for lg in nfl ncaaf cfl golf nhl nba; do cat <<EOSNIP
+- name: rd-${lg}
+  defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
+  routeRules:
+  - priority: 1
+    matchRules: [{prefixMatch: /}]
+    urlRedirect: {hostRedirect: ${APEX}, prefixRedirect: /${lg}/, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}
+EOSNIP
+done)
+# soccer host: /epl keeps its flat apex home; everything else nests under /soccer.
+- name: rd-soccer
+  defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
+  routeRules:
+  - priority: 1
+    matchRules: [{prefixMatch: /epl}]
+    urlRedirect: {hostRedirect: ${APEX}, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}
+  - priority: 2
+    matchRules: [{prefixMatch: /}]
+    urlRedirect: {hostRedirect: ${APEX}, prefixRedirect: /soccer/, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}
 YAML
   ${G} compute url-maps import "${URLMAP}" --source="${tmp}" --quiet
   rm -f "${tmp}"
@@ -166,6 +211,55 @@ frontend() {
       --load-balancing-scheme=EXTERNAL_MANAGED \
       --address="${IP_NAME}" --target-https-proxy="${HTTPS_PROXY}" --ports=443
   ok "HTTPS frontend live on ${IP} (dark: DNS still points at domain mappings)"
+}
+
+http() {
+  log "Port-80 front door: 301 every http:// request to https:// (the old
+  domain mappings did this implicitly; the LB needs it explicit)"
+  RMAP=apex-frontdoor-http-redirect
+  if ! exists compute url-maps describe "${RMAP}"; then
+    tmp=$(mktemp)
+    cat > "${tmp}" <<YAML
+name: ${RMAP}
+defaultUrlRedirect:
+  httpsRedirect: true
+  redirectResponseCode: MOVED_PERMANENTLY_DEFAULT
+YAML
+    ${G} compute url-maps import "${RMAP}" --source="${tmp}" --quiet
+    rm -f "${tmp}"
+    ok "created ${RMAP}"
+  else
+    ok "${RMAP} exists"
+  fi
+  exists compute target-http-proxies describe "${HTTP_PROXY}" ||     ${G} compute target-http-proxies create "${HTTP_PROXY}" --url-map="${RMAP}"
+  exists compute forwarding-rules describe "${HTTP_FR}" --global ||     ${G} compute forwarding-rules create "${HTTP_FR}" --global       --load-balancing-scheme=EXTERNAL_MANAGED       --address="${IP_NAME}" --target-http-proxy="${HTTP_PROXY}" --ports=80
+  ok "http:80 redirect frontend up"
+}
+
+LEGACY_HOSTS="nfl ncaaf cfl golf nhl nba soccer"
+LEGACY_CERT=legacy-hosts-cert
+
+redirects() {
+  log "Legacy-host TLS (the 301 host rules already ride the main urlmap import)"
+  doms=""; auths=""
+  for lg in ${LEGACY_HOSTS}; do
+    da="${lg}-auth"; dom="${lg}.${APEX}"
+    exists certificate-manager dns-authorizations describe "${da}" ||       ${G} certificate-manager dns-authorizations create "${da}" --domain="${dom}"
+    doms="${doms}${doms:+,}${dom}"; auths="${auths}${auths:+,}${da}"
+  done
+  echo
+  echo "ADD THESE CNAME RECORDS AT SQUARESPACE (Squarespace Host field = ONLY the"
+  echo "part before .sportsbookscienceanalytics.com — it appends the domain itself):"
+  for lg in ${LEGACY_HOSTS}; do
+    ${G} certificate-manager dns-authorizations describe "${lg}-auth"       --format="value(dnsResourceRecord.name, dnsResourceRecord.data)"
+  done
+  echo
+  exists certificate-manager certificates describe "${LEGACY_CERT}" ||     ${G} certificate-manager certificates create "${LEGACY_CERT}"       --domains="${doms}" --dns-authorizations="${auths}"
+  for lg in ${LEGACY_HOSTS}; do
+    dom="${lg}.${APEX}"; entry="entry-${dom//./-}"
+    exists certificate-manager maps entries describe "${entry}" --map="${CERT_MAP}" ||       ${G} certificate-manager maps entries create "${entry}" --map="${CERT_MAP}"         --hostname="${dom}" --certificates="${LEGACY_CERT}"
+  done
+  ${G} certificate-manager certificates describe "${LEGACY_CERT}"     --format="value(managed.state)"
 }
 
 status() {

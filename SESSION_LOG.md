@@ -6,6 +6,52 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-08-25 — inplayLABS partner-launch bridge (built, deployed dark)
+
+**Agent**: claude-fable-5
+
+New acquisition channel: inplayLABS members buy an SSA tool on their platform
+and land signed-in + entitled on our league sites via a signed-assertion POST
+to this hub. Full design in `docs/adr/0002-inplaylabs-partner-launch-bridge.md`;
+the filled-in onboarding answers for their team in
+`docs/INPLAYLABS_ONBOARDING.md`.
+
+### Shipped
+
+- `api/partner.py` — assertion verification (PyJWT + their JWKS; asymmetric
+  algs only, exact iss/aud, 300s lifetime cap, tool_id==aud==entitlement
+  triple-check), Firestore jti burn (transactional create), synthetic
+  `ipl_<sha256(sub)[:24]>` uids, time-boxed entitlement writer with the
+  namespace hard-guard, lapsed-doc sweep, custom-token→identitytoolkit→
+  session-cookie mint.
+- Routes: `POST /partner/inplaylabs/launch`, `/launch-test` (separate
+  issuer/JWKS, `ipltest_` uids, 1-day window), `/sweep` (scheduler,
+  `IPL_SWEEP_TOKEN` header). All 404 until env config lands — deployed dark.
+- `tests/test_partner_launch.py` — 21 new tests incl. the partner's go-live
+  checklist as parametrized rejections, real-signature verification against
+  a generated keypair, algorithm-confusion pin, replay, namespace guard.
+- `requirements.txt` pins PyJWT[crypto] (was transitive) + python-multipart
+  (Form parsing). deploy.sh env sanity list gains the four IPL keys.
+
+### Decisions (John, 2026-08-25)
+
+Per-sport tools (`ssa-nfl-model`→`nfl` etc.) · opaque-only (no email) ·
+7-day launch window · build now against placeholder config.
+
+### To activate (when inplayLABS sends their side)
+
+1. Set `IPL_JWKS_URL`, `IPL_ISSUER`, `IPL_TOOL_MAP`, `IPL_SWEEP_TOKEN`
+   (Secret Manager for the token) on the service; redeploy.
+2. Create the daily sweep Cloud Scheduler job (us-east1) posting to
+   `/partner/inplaylabs/sweep` with the header.
+3. Run their test lane end-to-end; then the go-live checklist in the
+   onboarding doc.
+
+### Open
+
+ToS flow-through for partner members (legal, John) · optional revocation
+webhook if they offer one · email-free header identity chip (cosmetic).
+
 <!-- New entries go directly below this line -->
 
 ## 2026-08-16 — Launch gate opened: the apex is indexable

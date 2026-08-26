@@ -5,3 +5,9 @@ google-cloud-firestore>=2.16.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 stripe>=9.0.0
+# Partner-launch bridge (api/partner.py, ADR-0002). PyJWT arrives
+# transitively via firebase-admin, but the bridge's security depends on it —
+# pin it directly. python-multipart is FastAPI's Form() parser: the partner
+# assertion arrives as a cross-site form POST, not JSON.
+PyJWT[crypto]>=2.8.0
+python-multipart>=0.0.9

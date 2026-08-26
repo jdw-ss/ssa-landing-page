@@ -25,8 +25,10 @@ apex is a single public audience. www + apex both map to this service.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
+import secrets
 from datetime import timedelta
 from pathlib import Path
 from typing import Optional
@@ -39,7 +41,7 @@ except ImportError:  # python-dotenv absent — envs come from the shell/Cloud R
     pass
 
 import requests
-from fastapi import Cookie, Depends, FastAPI, HTTPException, Request
+from fastapi import Cookie, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -222,6 +224,94 @@ async def exchange_session(
         {"customToken": custom_token},
         headers={"Cache-Control": "private, no-store", "Vary": "Cookie"},
     )
+
+
+# ── inplayLABS partner launch (ADR-0002) ────────────────────────────────────
+# An inplayLABS member arrives here via a form POST from the partner's Data
+# Tools page carrying a short-lived signed assertion. We verify, burn the jti,
+# grant a 7-day entitlement to a SYNTHETIC ipl_* uid, mint the standard
+# parent-domain session cookie, and redirect to the league site. Errors are
+# deliberately generic to the browser; reasons go to logs (their contract).
+
+def _partner_launch(assertion: str, response_cls, *, test: bool):
+    from api import partner
+
+    lane = partner._lane(test)
+    if lane is None:
+        raise HTTPException(404, "Not configured")
+    try:
+        claims = partner.verify_assertion(assertion, test=test)
+        partner.consume_jti(str(claims["jti"]), int(claims["exp"]))
+        tool = partner.tool_map()[claims["tool_id"]]
+        uid = partner.uid_for_sub(str(claims["sub"]), prefix=lane.uid_prefix)
+        partner.grant(uid, tool["slug"], claims["tool_id"],
+                      window_days=lane.window_days)
+        id_token = partner.mint_id_token(uid)
+
+        _init_firebase_admin()
+        from firebase_admin import auth as fb_auth
+        window_seconds = lane.window_days * 24 * 60 * 60
+        cookie_value = fb_auth.create_session_cookie(
+            id_token, expires_in=timedelta(seconds=window_seconds))
+    except partner.LaunchError as exc:
+        # jti + hashed uid only — never the token, never the raw sub.
+        logger.warning("ipl launch rejected: %s", exc.reason)
+        raise HTTPException(403, "Launch could not be verified") from None
+
+    resp = response_cls(url=tool["dest"], status_code=303)
+    resp.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=cookie_value,
+        max_age=window_seconds,
+        domain=SESSION_COOKIE_DOMAIN,
+        secure=True,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    # The JS-readable family state cookie: auth.js treats "0" (an explicit
+    # prior sign-out anywhere on .SSA) as a veto on session recovery, which
+    # would leave a freshly-launched member header-signed-out. "1" matches
+    # what auth.js itself writes after a successful sign-in.
+    resp.set_cookie(
+        key="ssa_auth", value="1", max_age=window_seconds,
+        domain=SESSION_COOKIE_DOMAIN, secure=True, httponly=False,
+        samesite="lax", path="/",
+    )
+    logger.info("ipl launch ok: tool=%s uid=%s jti=%s", claims["tool_id"],
+                partner.uid_for_sub(str(claims["sub"]), prefix=lane.uid_prefix),
+                hashlib.sha256(str(claims["jti"]).encode()).hexdigest()[:16])
+    return resp
+
+
+@app.post("/partner/inplaylabs/launch")
+async def inplaylabs_launch(assertion: str = Form(...)):
+    return await asyncio.to_thread(
+        _partner_launch, assertion, RedirectResponse, test=False)
+
+
+@app.post("/partner/inplaylabs/launch-test")
+async def inplaylabs_launch_test(assertion: str = Form(...)):
+    """Test lane: separate issuer/JWKS, ipltest_ uids, 1-day window. 404s
+    unless IPL_TEST_* env is configured — absent in prod by default."""
+    return await asyncio.to_thread(
+        _partner_launch, assertion, RedirectResponse, test=True)
+
+
+@app.post("/partner/inplaylabs/sweep")
+async def inplaylabs_sweep(request: Request):
+    """Cloud Scheduler prunes lapsed partner entitlements + jti docs. Guarded
+    by a shared secret header; constant-time compare, 404 when unset so the
+    route is invisible until configured."""
+    from api import partner
+
+    expected = os.environ.get("IPL_SWEEP_TOKEN", "")
+    if not expected:
+        raise HTTPException(404, "Not configured")
+    supplied = request.headers.get("x-ipl-sweep-token", "")
+    if not secrets.compare_digest(supplied.encode(), expected.encode()):
+        raise HTTPException(403, "Forbidden")
+    return await asyncio.to_thread(partner.sweep)
 
 
 # ── Customer profile + entitlements ──────────────────────────────────────────

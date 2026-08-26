@@ -76,7 +76,8 @@ if [[ "${1:-}" == "bootstrap" ]]; then
             --secret=stripe-secret-key --project=golf-data-projects)" \
           python3 -m scripts.stripe_bootstrap_live
    c. Bind both secrets and set the env lines the script printed (12×
-      STRIPE_PRICE_* + STRIPE_PORTAL_CONFIG):
+      STRIPE_PRICE_* + STRIPE_PORTAL_CONFIG \
+    IPL_JWKS_URL IPL_ISSUER IPL_TOOL_MAP IPL_SWEEP_TOKEN):
       ⚠ --update-env-vars here too (see step 4) or this WIPES the Firebase vars.
       gcloud run services update ssa-landing --region=us-east1 --project=golf-data-projects \
         --set-secrets=STRIPE_SECRET_KEY=stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest \

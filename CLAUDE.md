@@ -67,6 +67,12 @@ None.
 - **Stripe** — Checkout sessions, Customer Portal, subscriptions webhook at
   `/api/billing/webhook` (events: `checkout.session.completed`,
   `customer.subscription.created/updated/deleted`)
+- **inplayLABS** (partner platform, ADR-0002) — INBOUND launch assertions
+  (signed JWTs) at `POST /partner/inplaylabs/launch` (+ `/launch-test`,
+  `/sweep`). We fetch their JWKS over HTTPS; nothing flows out. Dormant
+  (routes 404) until `IPL_JWKS_URL`/`IPL_ISSUER`/`IPL_TOOL_MAP` are set.
+  Partner members are synthetic `ipl_*` Firebase uids with time-boxed
+  entitlements (`source: inplaylabs`, 7-day window) — see the gotcha.
 - **Firebase Auth** (`ssa-auth-71d16`) — id-token verify, session-cookie
   mint/verify, custom-token exchange; `/__/auth/*` + `/__/firebase/*`
   reverse-proxy to `ssa-auth-71d16.firebaseapp.com`
@@ -139,9 +145,17 @@ None.
 - **The session mint accepts ANY Google user — on purpose.** Don't "fix" it by
   adding an allow-list; customer authorization = Firestore entitlements,
   enforced league-side. Operator gating lives on `internal.<league>` hosts.
-- **Only the Stripe webhook writes `entitlements/{uid}`.** Never hand-edit or
-  write from request handlers; it's recomputed from the full subscription list
-  on every event (idempotent, self-healing).
+- **Only the Stripe webhook writes `entitlements/{uid}` — with ONE carve-out
+  (ADR-0002).** `api/partner.py` also writes, but exclusively to synthetic
+  `ipl_*`/`ipltest_*` uids that can never enter Stripe checkout, so the
+  webhook's full-overwrite recompute and the partner writer can never touch
+  the same doc. `partner.grant()` hard-refuses any other uid. Never widen
+  that carve-out; a partner slug on a real customer's doc would be silently
+  clobbered by the next Stripe event.
+- Partner entitlements are TIME-BOXED (`expires_at`, 7d): league gates don't
+  check expiry, so the daily sweep (`POST /partner/inplaylabs/sweep`, Cloud
+  Scheduler + `IPL_SWEEP_TOKEN` header) is what actually revokes them. If
+  partner members report access that never expires, check the scheduler.
 - **Homepage Live / Coming-Soon badges are manual and drift.** When a league
   launches its public surface, flip its card here (CFL sat stale once already).
 - **The apex is INDEXABLE as of 2026-08-16 — the launch gate is open.** John's

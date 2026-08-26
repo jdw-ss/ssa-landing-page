@@ -10,3 +10,14 @@ Disallow: /signin
 Disallow: /account
 
 Sitemap: https://sportsbookscienceanalytics.com/sitemap.xml
+
+# League surfaces live at apex paths since the 2026-08-27 cutover (legacy
+# <league>.SSA subdomains 301 here). One line per league sitemap that exists.
+Sitemap: https://sportsbookscienceanalytics.com/nfl/sitemap.xml
+Sitemap: https://sportsbookscienceanalytics.com/ncaaf/sitemap.xml
+Sitemap: https://sportsbookscienceanalytics.com/cfl/sitemap.xml
+Sitemap: https://sportsbookscienceanalytics.com/nba/sitemap.xml
+Sitemap: https://sportsbookscienceanalytics.com/nhl/sitemap.xml
+Sitemap: https://sportsbookscienceanalytics.com/soccer/sitemap.xml
+Sitemap: https://sportsbookscienceanalytics.com/epl/sitemap.xml
+Sitemap: https://sportsbookscienceanalytics.com/golf/sitemap.xml

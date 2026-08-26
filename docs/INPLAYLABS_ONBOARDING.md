@@ -11,9 +11,13 @@ to negotiate and marked TBD. Architecture on our side: ADR-0002.
 - **Support contact**: jdwilson@sportsbookscienceanalytics.com (or support@ alias, TBD).
 - **Production HTTPS URL**: https://sportsbookscienceanalytics.com
 - **Tool IDs** (lowercase, one per sport, launch order TBD by John):
-  - `ssa-nfl-model` — NFL ELO model (public surface `nfl.sportsbookscienceanalytics.com/elomodel/`)
-  - `ssa-ncaaf-model` — NCAAF ELO model (`ncaaf.sportsbookscienceanalytics.com`)
-  - `ssa-cfl-model` — CFL ELO model (`cfl.sportsbookscienceanalytics.com`)
+  - `ssa-nfl-model` — NFL ELO model (public surface `sportsbookscienceanalytics.com/nfl/elomodel/`)
+  - `ssa-ncaaf-model` — NCAAF ELO model (`sportsbookscienceanalytics.com/ncaaf`)
+  - `ssa-cfl-model` — CFL ELO model (`sportsbookscienceanalytics.com/cfl`)
+
+  (Apex-path form since the cutover; the legacy `<league>.SSA` subdomains
+  301 to these paths since 2026-08-27. The deployed `IPL_TOOL_MAP` dests
+  should move to the apex-path form at the next env update.)
 - **Launch URL** (all tools, one endpoint):
   `POST https://sportsbookscienceanalytics.com/partner/inplaylabs/launch`
   (form field `assertion` carrying the signed JWT)

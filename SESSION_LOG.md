@@ -6,6 +6,29 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-08-26 (cutover sweep) — apex-path origin forms for the 08-27 cutover
+
+Origin/URL-form-only sweep for the apex-path migration (John approved cutover
+2026-08-27; legacy `<league>.SSA` subdomains 301 from then on).
+
+- All 8 static shells: league nav links + homepage directory cards now
+  root-relative apex paths (`/nfl` `/ncaaf` `/cfl` `/golf` `/nba` `/nhl`
+  `/soccer`). Scheme-anchored replace only — signin's auth-JS hostname
+  allow-list, cookie-domain strings, and the Terms' legal prose about
+  subdomains untouched.
+- `static/robots.txt`: one `Sitemap:` line per league sitemap verified to
+  exist in its repo (nfl, ncaaf, cfl, nba, nhl, soccer, epl, golf — all
+  serve one), apex-path form; apex line kept.
+- `api/app.py` `_LEAGUE_SITEMAPS`: apex-path form + a new `/epl` entry (the
+  front-door carves /epl out of /soccer, so the soccer sitemap no longer
+  covers it). `_PORTFOLIO_URLS` deliberately unchanged per the sweep spec.
+- `docs/INPLAYLABS_ONBOARDING.md`: public-surface URLs → apex-path form;
+  noted the deployed `IPL_TOOL_MAP` dests should follow at next env update
+  (partner.py and its test fixture untouched — entitlement code).
+- deploy.sh needed nothing: its probes already hit the apex (this repo IS
+  the apex). No domain-mapping changes; subdomain mappings stay for rollback.
+- 68 tests green (python3.13 -m pytest).
+
 ## 2026-08-26 (later) — partner chip shipped to every partner-visible surface
 
 "inplayLABS Member" chip (account.js) deployed: apex, nfl.SSA root

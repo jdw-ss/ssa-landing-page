@@ -520,15 +520,19 @@ async def robots():
 # from one file even if an individual league route hasn't been redeployed yet.
 # Both are live now and inert while robots.txt disallows — nothing to flip here
 # at launch.
+# Apex-path form since the 2026-08-27 cutover (legacy <league>.SSA subdomains
+# 301 to these prefixes). /epl gets its own entry: the front-door carves it out
+# of /soccer, so the soccer sitemap no longer covers it.
 _LEAGUE_SITEMAPS = (
     "https://sportsbookscienceanalytics.com/sitemap-portfolio.xml",
-    "https://nfl.sportsbookscienceanalytics.com/sitemap.xml",
-    "https://ncaaf.sportsbookscienceanalytics.com/sitemap.xml",
-    "https://cfl.sportsbookscienceanalytics.com/sitemap.xml",
-    "https://nba.sportsbookscienceanalytics.com/sitemap.xml",
-    "https://nhl.sportsbookscienceanalytics.com/sitemap.xml",
-    "https://soccer.sportsbookscienceanalytics.com/sitemap.xml",
-    "https://golf.sportsbookscienceanalytics.com/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/nfl/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/ncaaf/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/cfl/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/nba/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/nhl/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/soccer/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/epl/sitemap.xml",
+    "https://sportsbookscienceanalytics.com/golf/sitemap.xml",
 )
 
 _PORTFOLIO_URLS = (

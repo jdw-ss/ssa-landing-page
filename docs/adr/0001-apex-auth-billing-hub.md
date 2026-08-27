@@ -4,6 +4,14 @@
 **Date**: 2026-07-30
 **Project**: ssa-landing-page (portfolio-wide impact — every league service)
 
+> **Superseded in part by `ssa-landing-page/docs/adr/0003-apex-path-consolidation.md`
+> (2026-08-27)** — only the public-host topology assumed below. Public league
+> surfaces are now apex paths (`SSA.com/<league>`) behind one front door and the
+> `<league>.SSA` subdomains 301 permanently; `internal.<league>.SSA` is
+> unchanged. Every auth/billing decision here — the single sign-in origin, the
+> open session mint, Firestore entitlements, the Stripe model — stands as
+> written (ADR-0003 §6).
+
 ## Context
 
 The SSA league sites are going behind a customer paywall. John's requirements

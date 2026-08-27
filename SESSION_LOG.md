@@ -20,6 +20,50 @@ validation twice to skip failure backoff. ADR-0003 has the architecture;
 workspace APEX_MIGRATION_TRACKER.md has the blow-by-blow + the ~Oct teardown
 deadline (soccer/nfl LB cert renewals). Search Console re-registration = John.
 
+### Post-cutover adversarial QA (413 checks, 395 passed — healthy with notes)
+
+No auth bypass, no paid-data leak, no wrong-backend leak, no 5xx. Two findings
+were this repo's:
+
+- **`og-default.png` never existed.** Twelve shells across ten repos have
+  hardcoded the absolute apex URL for `og:image` / `twitter:image` / the
+  schema.org Organization logo since the SEO pass, so every social share
+  preview and the Rich-Results logo had been 404ing the whole time. Now served
+  at the ROOT (`GET /og-default.png`, 1-day cache) — root path, not `/static/`,
+  because the absolute URL is what the other ten repos hardcode.
+- **soccer.SSA's `/epl` carve-out needed a segment boundary.** The legacy 301
+  host rule used a bare `prefixMatch: /epl`, which also swallows `/epla` and
+  `/epl-standings` and drops them into the FLAT apex namespace. Split into
+  `fullPathMatch: /epl` + `prefixMatch: /epl/` in `infra/apex-frontdoor.sh`.
+  Latent today; wrong the moment a `/epl-*` soccer route exists.
+
+### Security response headers (John approved, all 10 services)
+
+`Strict-Transport-Security: max-age=31536000; includeSubDomains`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin`, `X-Frame-Options` — the QA sweep found none
+of them on any host. New `security_headers` middleware in `api/app.py`:
+fill-in only (a route that set its own value keeps it), registered at module
+END so it is the OUTERMOST wrapper (Starlette builds in reverse) and the www
+301 and the 404 fallback carry them too.
+
+HSTS is set **unconditionally**, never gated on `request.url.scheme` — behind
+Cloud Run and the ALB the inbound scheme reads as `http`, so a scheme test
+would silently ship nothing forever. It matters most on this service: it mints
+`__session` on the PARENT domain `.sportsbookscienceanalytics.com`, so a
+downgrade on ANY host in the family exposes the cookie — hence
+`includeSubDomains`.
+
+The first cut stamped a blanket `X-Frame-Options: DENY`, **caught in review
+before deploy**. DENY refuses SAME-ORIGIN framing too, and the SPA frames the
+self-proxied `/__/auth/iframe` first-party to carry popup sign-in events
+(ADR-0004); firebaseapp.com sends no policy of its own, so ours would have
+landed on the proxied response and broken sign-in with the exact 2026-07-31
+signature — popup completes, page stays signed out. Paths under `/__/` now get
+SAMEORIGIN, everything else DENY; both branches pinned by test. 71 green.
+Verified live: `/` → DENY, `/__/auth/iframe` → SAMEORIGIN, `/og-default.png`
+→ 200.
+
 ## 2026-08-26 (cutover sweep) — apex-path origin forms for the 08-27 cutover
 
 Origin/URL-form-only sweep for the apex-path migration (John approved cutover

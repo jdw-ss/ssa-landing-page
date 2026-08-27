@@ -15,6 +15,21 @@ internal hosts keep their own `ADMIN_EMAILS` mints); (4) Stripe billing:
 writes Firestore entitlements. Status: **converted, not yet deployed** —
 paywall bootstrap pending (`./deploy.sh bootstrap`).
 
+**Since 2026-08-27 this service is also the DEFAULT BACKEND of the apex front
+door** — one global ALB (`34.160.208.32`) fronting the whole family. The hub's
+own public URLs did not move (`/`, `/help`, `/pricing`, `/terms`, `/privacy`,
+`/signin`, `/account`), but it no longer owns the whole apex path namespace:
+the public league surfaces are now apex paths — `/nfl` (+`/nfl/mockdrafts`,
+`/nfl/elomodel`), `/ncaaf`, `/cfl`, `/golf`, `/nhl`, `/nba`, `/soccer`, and
+flat `/epl` (deliberately NOT `/soccer/epl`). Legacy `<league>.SSA` hosts are
+PERMANENT 301 host rules on the same urlmap — their DNS repoints at the LB and
+is NEVER deleted. `internal.<league>.SSA` is unchanged (operator tier, own
+hosts, noindex, same auth). The hub needs no apex middleware — it IS the
+default backend and serves at the root; the dual-depth `root_path` recipe
+applies to the league apps. Architecture of record:
+`docs/adr/0003-apex-path-consolidation.md`; provisioning is
+`infra/apex-frontdoor.sh` (staged + idempotent).
+
 ## Stack
 
 - **Language**: Python 3.11 (use `python3`, no venv on the dev box)
@@ -53,6 +68,10 @@ cd '/Users/johnwilson/Claude Projects/ssa-landing-page' && \
 - **Region**: `us-east1`
 - **Cloud Run service**: `ssa-landing`
 - **Custom domains**: `sportsbookscienceanalytics.com` (apex) + `www.…`
+- **Apex front door** (2026-08-27): global ALB `34.160.208.32` in this project,
+  `ssa-landing-be` as the urlmap default; league prefixes point at backend
+  services in six projects. Built by `infra/apex-frontdoor.sh`. The old Cloud
+  Run domain mappings stay during the soak as instant rollback
 - **Cross-project deps**: Firestore + Firebase Auth in `ssa-auth-71d16`
   (runtime SA needs `roles/datastore.user` there); Stripe secrets in
   `golf-data-projects` Secret Manager (`stripe-secret-key`,
@@ -106,6 +125,31 @@ None.
 
 ## Gotchas
 
+- **NEVER "tighten" the `/__/` frame policy to DENY.** `security_headers`
+  (api/app.py, module end) stamps `X-Frame-Options: DENY` on everything EXCEPT
+  paths under `/__/`, which get `SAMEORIGIN`. That carve-out is load-bearing
+  and looks like an oversight: the Firebase JS SDK **frames** the self-proxied
+  `/__/auth/iframe` **first-party** to carry popup sign-in events (ADR-0004),
+  and DENY refuses same-origin framing too — firebaseapp.com sends no policy of
+  its own, so ours lands on the proxied response and kills sign-in for the
+  whole SSA family (this is the ONE origin the customer popup runs on). The
+  failure is silent and looks exactly like the 2026-07-31 mint incident: **the
+  popup completes, then the page stays signed out** — no error, no 4xx, nothing
+  obvious in the apex logs. A blanket DENY reads as a hardening win in review;
+  it is an outage. Both branches are pinned in `tests/test_public_hardening.py`.
+- **HSTS is set UNCONDITIONALLY — never gate it on `request.url.scheme`.**
+  Behind Cloud Run and the ALB the inbound scheme reads as `http`, so a scheme
+  test would look correct and silently ship nothing forever. It matters most
+  here: this service mints `__session` on the PARENT domain, so a downgrade on
+  ANY host in the family exposes it — hence `includeSubDomains`. The whole
+  middleware is fill-in only (`setdefault`), and it must stay registered at
+  module END: Starlette wraps later registrations OUTERMOST, which is what
+  makes the www 301 and the 404 fallback carry the headers.
+- **`/og-default.png` is served from the ROOT, not `/static/`** — twelve shells
+  across ten repos hardcode the absolute apex URL for `og:image` /
+  `twitter:image` / the schema.org Organization logo. Moving or renaming it
+  breaks every social share preview in the portfolio silently (it 404'd
+  unnoticed from the SEO pass until the 2026-08-27 QA sweep).
 - **Bump `TOS_VERSION` (api/entitlements.py) whenever `/terms` changes
   materially** — the session mint stamps the accepted version on
   `customers/{uid}` (best-effort, never blocks sign-in). The clickwrap line

@@ -154,6 +154,13 @@ None.
   `twitter:image` / the schema.org Organization logo. Moving or renaming it
   breaks every social share preview in the portfolio silently (it 404'd
   unnoticed from the SEO pass until the 2026-08-26 QA sweep).
+- **Partner entitlements MERGE per sport — never write `slugs` wholesale.**
+  One IPL assertion names one tool, so a two-tool member launches twice;
+  `partner.grant()` keeps `grants: {slug: {tool_id, expires_at}}` as the
+  authority and rebuilds `slugs` from the unexpired entries. A plain
+  `set({"slugs": [slug]})` (the original) silently revokes the sport the
+  member launched five minutes ago. Pinned by
+  `tests/test_partner_launch.py::test_second_tool_launch_does_not_revoke_the_first`.
 - **`_init_firebase_admin()` must run BEFORE `partner.mint_id_token()`** in
   `_partner_launch` — the mint calls `create_custom_token`, which raises "The
   default Firebase app does not exist" without it. The init used to sit one

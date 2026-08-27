@@ -68,6 +68,19 @@ touching six league repos or the Stripe machinery.
 8. **Destinations are our config.** `IPL_TOOL_MAP` carries the redirect
    target per tool; nothing in the request chooses a URL (no open redirect).
 
+9. **Entitlements accumulate PER SLUG, with per-slug expiry** (2026-08-26).
+   One assertion names one `tool_id`, so a member who bought two tools
+   launches them separately. `grant()` originally wrote
+   `{"slugs": [slug]}` with a plain Firestore `set()`, which meant the
+   second launch silently revoked the first sport — invisible while every
+   member owned exactly one tool. `grants` is now the authority
+   (`{slug: {tool_id, expires_at, updated_at}}`) and `slugs` is the
+   flattened view the league gates already read, rebuilt from the unexpired
+   entries. Each launch refreshes ONLY its own sport's window, so the
+   7-day revocation bound still holds per sport rather than being extended
+   by an unrelated launch. The sweep prunes lapsed SLUGS and deletes the
+   document only once nothing is left running.
+
 ## Open items
 
 - **ToS**: partner members never click SSA's clickwrap; their contract is

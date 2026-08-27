@@ -259,7 +259,21 @@ def uid_for_sub(sub: str, *, prefix: str = UID_PREFIX) -> str:
 
 
 def grant(uid: str, slug: str, tool_id: str, *, window_days: int, db=None) -> None:
-    """Write the time-boxed partner entitlement.
+    """Write the time-boxed partner entitlement, MERGING with any sports this
+    member already holds.
+
+    A member who bought two tools launches them separately — one assertion
+    names one tool_id. The first cut wrote ``{"slugs": [slug]}`` with a plain
+    Firestore ``set()``, so launching NCAAF silently revoked the NFL access
+    granted minutes earlier (their still-open NFL tab started 402ing). Nothing
+    caught it because every member to date owns exactly one tool.
+
+    So expiry has to live PER SLUG, not per document: each launch refreshes
+    only its own sport's window and leaves the others running on theirs.
+    ``grants`` is the authority; ``slugs`` is the flattened view the league
+    gates already read (they know nothing about partners), rebuilt here from
+    the unexpired entries so a lapsed sport disappears from it even before the
+    daily sweep runs.
 
     HARD GUARD: refuses any uid outside the partner namespaces. This module
     is the single non-Stripe writer to entitlements/{uid}, and only for its
@@ -270,21 +284,38 @@ def grant(uid: str, slug: str, tool_id: str, *, window_days: int, db=None) -> No
         raise LaunchError(f"grant refused for non-partner uid {uid!r}")
     db = db or ent._firestore()
     now = dt.datetime.now(dt.timezone.utc)
-    db.collection("entitlements").document(uid).set({
-        "slugs": [slug],
+    expires = now + dt.timedelta(days=window_days)
+
+    ref = db.collection("entitlements").document(uid)
+    snap = ref.get()
+    existing = (snap.to_dict() or {}) if getattr(snap, "exists", False) else {}
+    grants = dict(existing.get("grants") or {})
+
+    grants[slug] = {
+        "tool_id": tool_id,
+        "expires_at": expires,
+        "updated_at": now,
+    }
+    live = {sl: g for sl, g in grants.items()
+            if (g.get("expires_at") or expires) > now}
+
+    ref.set({
+        "slugs": sorted(live),
+        "grants": live,
         "packages": [{
-            "sku": tool_id,
-            "label": f"inplayLABS: {tool_id}",
+            "sku": g["tool_id"],
+            "label": f"inplayLABS: {g['tool_id']}",
             "status": "partner",
             "term": f"{window_days}d-launch-window",
-        }],
+        } for _, g in sorted(live.items())],
         "source": _SOURCE,
-        "tool_id": tool_id,
-        "expires_at": now + dt.timedelta(days=window_days),
+        # Doc-level expiry is the LATEST of the live windows, so the sweep
+        # never deletes a doc that still has a running sport in it.
+        "expires_at": max(g["expires_at"] for g in live.values()),
         "updated_at": now,
     })
-    logger.info("ipl grant: uid=%s slug=%s tool=%s window=%dd",
-                uid, slug, tool_id, window_days)
+    logger.info("ipl grant: uid=%s slug=%s tool=%s window=%dd (holds %s)",
+                uid, slug, tool_id, window_days, ",".join(sorted(live)))
 
 
 def sweep(db=None) -> dict:
@@ -297,8 +328,31 @@ def sweep(db=None) -> dict:
     db = db or ent._firestore()
     now = dt.datetime.now(dt.timezone.utc)
     removed = 0
+    pruned_slugs = 0
     for snap in db.collection("entitlements").where("source", "==", _SOURCE).stream():
         data = snap.to_dict() or {}
+        grants = data.get("grants") or {}
+        if grants:
+            # Per-slug expiry (multi-tool members): drop only the lapsed
+            # sports, and delete the doc only once nothing is left running.
+            live = {sl: g for sl, g in grants.items()
+                    if (g.get("expires_at") is None or g["expires_at"] > now)}
+            if len(live) == len(grants):
+                continue
+            if not live:
+                snap.reference.delete()
+                removed += 1
+                continue
+            snap.reference.set({
+                **data,
+                "slugs": sorted(live),
+                "grants": live,
+                "packages": [pk for pk in (data.get("packages") or [])
+                             if pk.get("sku") in {g["tool_id"] for g in live.values()}],
+                "expires_at": max(g["expires_at"] for g in live.values()),
+            })
+            pruned_slugs += len(grants) - len(live)
+            continue
         expires = data.get("expires_at")
         if expires is not None and expires < now:
             snap.reference.delete()
@@ -307,9 +361,10 @@ def sweep(db=None) -> dict:
     for snap in db.collection(_JTI_COLLECTION).where("expire_at", "<", now).stream():
         snap.reference.delete()
         jti_removed += 1
-    logger.info("ipl sweep: %d entitlements pruned, %d jti pruned",
-                removed, jti_removed)
-    return {"entitlements_pruned": removed, "jti_pruned": jti_removed}
+    logger.info("ipl sweep: %d entitlements pruned, %d lapsed slugs dropped, "
+                "%d jti pruned", removed, pruned_slugs, jti_removed)
+    return {"entitlements_pruned": removed, "slugs_pruned": pruned_slugs,
+            "jti_pruned": jti_removed}
 
 
 # ── Session mint (custom token → ID token → session cookie) ─────────────────

@@ -409,3 +409,118 @@ def test_internal_failure_is_500_not_403(launch_client, keypair, monkeypatch):
                     data={"assertion": make_assertion(priv)})
     assert r.status_code == 500
     assert "boom" not in r.text, "internal detail must not reach the partner"
+
+
+# ── Multi-tool members: launches must accumulate, not clobber ───────────────
+
+class _FakeSnap:
+    def __init__(self, data):
+        self.exists = data is not None
+        self._data = data
+
+    def to_dict(self):
+        return dict(self._data) if self._data is not None else None
+
+
+class _FakeDocRef:
+    def __init__(self):
+        self.data = None
+        self.deleted = False
+
+    def get(self):
+        return _FakeSnap(self.data)
+
+    def set(self, payload, **kwargs):
+        self.data = dict(payload)
+
+    def delete(self):
+        self.deleted = True
+        self.data = None
+
+
+class _FakeCollection:
+    def __init__(self, name, store):
+        self.name = name
+        self.store = store
+
+    def document(self, uid):
+        return self.store.setdefault(uid, _FakeDocRef())
+
+    def where(self, *a, **k):
+        return self
+
+    def stream(self):
+        for uid, ref in list(self.store.items()):
+            snap = _FakeSnap(ref.data)
+            snap.reference = ref
+            if snap.exists:
+                yield snap
+
+
+class _FakeDB:
+    def __init__(self):
+        self.stores = {}
+
+    def collection(self, name):
+        return _FakeCollection(name, self.stores.setdefault(name, {}))
+
+
+PARTNER_UID = "ipl_" + "a" * 24
+
+
+def test_second_tool_launch_does_not_revoke_the_first():
+    """A member owning two IPL tools launches them separately. The first cut
+    wrote {"slugs": [slug]} with a plain set(), so the NCAAF launch silently
+    revoked NFL access granted minutes earlier."""
+    db = _FakeDB()
+    partner.grant(PARTNER_UID, "nfl", "ssa-nfl-model", window_days=7, db=db)
+    assert db.stores["entitlements"][PARTNER_UID].data["slugs"] == ["nfl"]
+
+    partner.grant(PARTNER_UID, "ncaaf", "ssa-ncaaf-model", window_days=7, db=db)
+    doc = db.stores["entitlements"][PARTNER_UID].data
+    assert doc["slugs"] == ["ncaaf", "nfl"], "the earlier sport was revoked"
+    assert set(doc["grants"]) == {"nfl", "ncaaf"}
+    assert {p["sku"] for p in doc["packages"]} == {"ssa-nfl-model", "ssa-ncaaf-model"}
+
+
+def test_relaunch_extends_only_its_own_window():
+    """Each launch re-gates ONE sport. Refreshing NFL must not silently
+    extend NCAAF's window (that would defeat the revocation bound)."""
+    db = _FakeDB()
+    partner.grant(PARTNER_UID, "ncaaf", "ssa-ncaaf-model", window_days=7, db=db)
+    first = db.stores["entitlements"][PARTNER_UID].data["grants"]["ncaaf"]["expires_at"]
+
+    partner.grant(PARTNER_UID, "nfl", "ssa-nfl-model", window_days=7, db=db)
+    grants = db.stores["entitlements"][PARTNER_UID].data["grants"]
+    assert grants["ncaaf"]["expires_at"] == first, "NCAAF's window moved"
+    assert grants["nfl"]["expires_at"] >= first
+
+
+def test_sweep_drops_only_the_lapsed_sport():
+    """Per-slug expiry: a member whose NFL window lapsed keeps NCAAF, and the
+    doc survives. Previously one expires_at deleted the whole document."""
+    db = _FakeDB()
+    partner.grant(PARTNER_UID, "nfl", "ssa-nfl-model", window_days=7, db=db)
+    partner.grant(PARTNER_UID, "ncaaf", "ssa-ncaaf-model", window_days=7, db=db)
+
+    ref = db.stores["entitlements"][PARTNER_UID]
+    stale = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+    ref.data["grants"]["nfl"]["expires_at"] = stale
+
+    result = partner.sweep(db=db)
+    assert result["slugs_pruned"] == 1
+    assert result["entitlements_pruned"] == 0
+    assert ref.data["slugs"] == ["ncaaf"]
+    assert not ref.deleted
+
+
+def test_sweep_deletes_the_doc_when_every_sport_lapsed():
+    db = _FakeDB()
+    partner.grant(PARTNER_UID, "nfl", "ssa-nfl-model", window_days=7, db=db)
+    ref = db.stores["entitlements"][PARTNER_UID]
+    stale = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+    ref.data["grants"]["nfl"]["expires_at"] = stale
+
+    result = partner.sweep(db=db)
+    assert result["entitlements_pruned"] == 1
+    assert ref.deleted

@@ -154,6 +154,18 @@ None.
   `twitter:image` / the schema.org Organization logo. Moving or renaming it
   breaks every social share preview in the portfolio silently (it 404'd
   unnoticed from the SEO pass until the 2026-08-26 QA sweep).
+- **`_init_firebase_admin()` must run BEFORE `partner.mint_id_token()`** in
+  `_partner_launch` — the mint calls `create_custom_token`, which raises "The
+  default Firebase app does not exist" without it. The init used to sit one
+  line below the mint and survived every test, because all 22 partner tests
+  exercised `partner.*` helpers directly and every rejection case fails
+  BEFORE the mint. inplayLABS' first real launch 500'd on it (2026-08-26).
+  The route now has endpoint-level tests; keep them — a partner bridge whose
+  happy path is never executed is not tested, only rehearsed.
+- **Partner launch: 403 means the assertion was refused, 500 means WE broke.**
+  `_partner_launch` catches `LaunchError` → 403 and anything else → 500 with a
+  logged traceback and the jti. Don't collapse them: a partner debugging a
+  valid token against a generic 403 will chase their own signer forever.
 - **Bump `TOS_VERSION` (api/entitlements.py) whenever `/terms` changes
   materially** — the session mint stamps the accepted version on
   `customers/{uid}` (best-effort, never blocks sign-in). The clickwrap line

@@ -218,6 +218,22 @@ def test_the_sitemap_and_the_indexable_set_agree(client):
         f"meta-only={set(INDEXABLE_PAGES) - apex}")
 
 
+# ── Security response headers ────────────────────────────────────────────────
+
+def test_security_headers_on_a_real_page(client):
+    """The QA sweep 2026-08-27 found none of these anywhere on the platform.
+    HSTS is the load-bearing one: the `__session` cookie is minted on the
+    PARENT domain, so a downgrade on any host in the family exposes it — which
+    is why includeSubDomains is pinned here, not just max-age."""
+    r = client.get("/")
+    assert r.status_code == 200
+    assert r.headers["strict-transport-security"] == (
+        "max-age=31536000; includeSubDomains")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert r.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+
 def test_og_default_card_exists_and_is_a_png(client):
     """Every shell in all ten repos hardcodes this absolute URL for og:image,
     twitter:image and the schema.org Organization logo. It 404'd from the SEO

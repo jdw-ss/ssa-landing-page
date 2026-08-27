@@ -631,3 +631,27 @@ async def serve_rest(full_path: str):
         status_code=404,
         headers={"Cache-Control": "no-cache"},
     )
+
+
+# ── Security response headers ────────────────────────────────────────────────
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Portfolio security headers (John 2026-08-27, after the post-cutover QA
+    sweep found none of them on any host). Fill-in only — a route that set its
+    own value keeps it. HSTS is UNCONDITIONAL, never gated on
+    `request.url.scheme`: behind Cloud Run's proxy the inbound scheme reads as
+    http, so the gate would silently ship nothing. It matters here specifically
+    because this service mints the `__session` cookie on the PARENT domain
+    .sportsbookscienceanalytics.com — a downgrade on ANY host in the family
+    exposes it, hence includeSubDomains. Registered LAST = outermost wrapper
+    (Starlette builds in reverse), so the www 301 carries them too."""
+    response = await call_next(request)
+    for name, value in (
+        ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "DENY"),
+        ("Referrer-Policy", "strict-origin-when-cross-origin"),
+    ):
+        response.headers.setdefault(name, value)
+    return response

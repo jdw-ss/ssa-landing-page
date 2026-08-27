@@ -277,3 +277,24 @@ def test_account_widget_prefixes_match_partner_module():
     import re
     for prefix in (partner.UID_PREFIX, partner.TEST_UID_PREFIX):
         assert re.match(r"^ipl(test)?_", prefix + "abc"), prefix
+
+
+def test_rejection_log_names_the_offending_issuer(keypair):
+    """A bare "Invalid issuer" cost a partner round-trip on IPL's first live
+    launch: the signature had already verified, so exactly one string was
+    wrong and neither side could see which. The rejection reason must name
+    the received AND the expected issuer — and must never leak `sub`."""
+    priv, _ = keypair
+    # The exact shape of IPL's first live failure: signature verifies, one
+    # string differs. (Prod's configured issuer carries a trailing slash;
+    # this fixture's does not, so spell the mismatch out rather than deriving
+    # it from ISSUER.)
+    wrong = ISSUER + "/"
+    token = make_assertion(priv, iss=wrong)
+    with pytest.raises(partner.LaunchError) as excinfo:
+        partner.verify_assertion(token)
+    msg = str(excinfo.value)
+    assert "InvalidIssuerError" in msg
+    assert f"received iss={wrong!r}" in msg
+    assert f"expected iss={ISSUER!r}" in msg
+    assert "member-12345" not in msg, "sub must never reach the logs"

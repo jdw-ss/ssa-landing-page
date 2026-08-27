@@ -176,7 +176,27 @@ def verify_assertion(token: str, *, test: bool = False) -> dict:
             },
         )
     except pyjwt.PyJWTError as exc:
-        raise LaunchError(f"JWT rejected: {type(exc).__name__}: {exc}") from exc
+        # Name the offending claim in the log. A bare "Invalid issuer" costs a
+        # partner round-trip to diagnose (it did on IPL's first live launch,
+        # 2026-08-26): the signature had ALREADY verified, so the only fault
+        # was one string, and neither side could see which. Re-read the claims
+        # WITHOUT verification purely to describe the rejection — the token is
+        # already refused, nothing here is trusted, and iss/aud/tool_id/kid are
+        # public routing identifiers, never secrets. `sub` is deliberately
+        # excluded (it is the partner's member key).
+        detail = ""
+        try:
+            unverified = pyjwt.decode(token, options={"verify_signature": False})
+            head = pyjwt.get_unverified_header(token)
+            detail = (f" [received iss={unverified.get('iss')!r}"
+                      f" aud={unverified.get('aud')!r}"
+                      f" tool_id={unverified.get('tool_id')!r}"
+                      f" kid={head.get('kid')!r}; expected iss={lane.issuer!r}"
+                      f" aud one of {sorted(tools)}]")
+        except Exception:  # noqa: BLE001 — diagnostics must never mask the reject
+            pass
+        raise LaunchError(
+            f"JWT rejected: {type(exc).__name__}: {exc}{detail}") from exc
 
     lifetime = int(claims["exp"]) - int(claims["iat"])
     if lifetime <= 0 or lifetime > MAX_ASSERTION_LIFETIME_SECONDS:

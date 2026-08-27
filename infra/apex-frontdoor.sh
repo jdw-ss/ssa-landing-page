@@ -101,6 +101,16 @@ hostRules:
   pathMatcher: rd-nba
 - hosts: [soccer.${APEX}]
   pathMatcher: rd-soccer
+# INTERNAL (operator) hosts, absorbed from the retiring per-league LBs
+# 2026-08-27. NOT redirects and NOT apex paths: they serve the unprefixed
+# internal surface exactly as their old front doors did, so the path split
+# below MIRRORS nfl-frontdoor-urlmap / soccer-frontdoor-urlmap one-for-one.
+# The apps' apex middleware keys on the APEX host only, so an internal Host
+# passes through unprefixed — the dual-depth design working in our favour.
+- hosts: [internal.nfl.${APEX}]
+  pathMatcher: int-nfl
+- hosts: [internal.soccer.${APEX}]
+  pathMatcher: int-soccer
 pathMatchers:
 - name: apex
   defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
@@ -145,6 +155,16 @@ $(for lg in nfl ncaaf cfl golf nhl nba; do cat <<EOSNIP
 EOSNIP
 done)
 # soccer host: /epl keeps its flat apex home; everything else nests under /soccer.
+- name: int-nfl
+  defaultService: https://www.googleapis.com/compute/v1/$(be_ref nfl-data-projects nfl-mockdraft-be)
+  pathRules:
+  - paths: [/elomodel, /elomodel/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref nfl-data-projects nfl-elo-be)
+- name: int-soccer
+  defaultService: https://www.googleapis.com/compute/v1/$(be_ref soccer-data-projects soccer-hub-be)
+  pathRules:
+  - paths: [/epl, /epl/*]
+    service: https://www.googleapis.com/compute/v1/$(be_ref soccer-data-projects soccer-epl-be)
 - name: rd-soccer
   defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
   routeRules:
@@ -164,7 +184,7 @@ done)
 YAML
   ${G} compute url-maps import "${URLMAP}" --source="${tmp}" --quiet
   rm -f "${tmp}"
-  ok "path matcher imported (default→ssa-landing; /cfl /ncaaf /golf /nhl /nba /soccer /nfl(+/elomodel) /elomodel /epl)"
+  ok "path matchers imported (apex paths + 7 legacy 301s + internal.nfl / internal.soccer)"
 }
 
 dns_auth() {

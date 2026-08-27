@@ -181,7 +181,14 @@
             // static tags: this file is vendored byte-identically to all 9
             // surfaces, so it cannot carry any repo's own ?v number. The
             // 300s static TTL bounds how stale the lazy-loaded copy can be.
-            s.src = (ON_APEX ? "" : "") + "/static/js/auth.js?v=lazy";
+            // Prefix-aware: this loads THIS surface's OWN auth.js, not the
+            // hub's — so it must follow the page's root, exactly like every
+            // other same-origin asset. The old form was a dead ternary
+            // (both branches "") leaving a root-absolute path, which under an
+            // apex prefix resolves to the front door's DEFAULT backend and
+            // silently loads ssa-landing's copy instead (2026-08-27). Note
+            // A()/APEX above are for HUB links and are correct as they are.
+            s.src = (window.__ROOT__ || "") + "/static/js/auth.js?v=lazy";
             s.onload = resolve;
             s.onerror = reject;
             document.head.appendChild(s);

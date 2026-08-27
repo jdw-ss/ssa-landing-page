@@ -244,3 +244,21 @@ def test_og_default_card_exists_and_is_a_png(client):
     assert r.headers["content-type"] == "image/png"
     assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
     assert len(r.content) > 10_000
+
+
+def test_firebase_handshake_paths_keep_sameorigin():
+    """The SPA frames the self-proxied `/__/auth/iframe` first-party to carry
+    popup sign-in events. DENY blocks SAME-ORIGIN framing too, so a blanket
+    DENY here breaks sign-in with the exact signature of the 2026-07-31 mint
+    incident: popup completes, page stays signed out. Pin both branches."""
+    import api.app as app_mod
+    assert app_mod._SPA_FRAMED_PREFIX == "/__/"
+
+    def policy(path, root=""):
+        p = path[len(root):] if root and path.startswith(root) else path
+        return "SAMEORIGIN" if p.startswith(app_mod._SPA_FRAMED_PREFIX) else "DENY"
+
+    assert policy("/__/auth/iframe") == "SAMEORIGIN"
+    assert policy("/__/firebase/init.json") == "SAMEORIGIN"
+    assert policy("/") == "DENY"
+    assert policy("/api/health") == "DENY"

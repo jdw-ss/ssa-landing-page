@@ -635,6 +635,15 @@ async def serve_rest(full_path: str):
 
 # ── Security response headers ────────────────────────────────────────────────
 
+# The reserved Firebase handshake paths are the one exception to DENY. The SPA
+# FRAMES `/__/auth/iframe` first-party — that is the entire point of the
+# self-proxy (ADR-0004) — and firebaseapp.com sends no X-Frame-Options of its
+# own, so a blanket DENY would land on the proxied response and break sign-in
+# (DENY blocks same-origin framing too: the popup completes while the page
+# stays signed out). SAMEORIGIN still refuses every cross-origin framer.
+_SPA_FRAMED_PREFIX = "/__/"
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     """Portfolio security headers (John 2026-08-27, after the post-cutover QA
@@ -646,11 +655,19 @@ async def security_headers(request: Request, call_next):
     .sportsbookscienceanalytics.com — a downgrade on ANY host in the family
     exposes it, hence includeSubDomains. Registered LAST = outermost wrapper
     (Starlette builds in reverse), so the www 301 carries them too."""
+    # DENY every page; SAMEORIGIN only on the framed Firebase handshake paths.
+    # Path read BEFORE call_next and normalized against root_path — the /static
+    # Mount rewrites scope's path while routing.
+    p = request.url.path
+    root = request.scope.get("root_path", "")
+    if root and p.startswith(root):
+        p = p[len(root):]
+    frame_policy = "SAMEORIGIN" if p.startswith(_SPA_FRAMED_PREFIX) else "DENY"
     response = await call_next(request)
     for name, value in (
         ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
         ("X-Content-Type-Options", "nosniff"),
-        ("X-Frame-Options", "DENY"),
+        ("X-Frame-Options", frame_policy),
         ("Referrer-Policy", "strict-origin-when-cross-origin"),
     ):
         response.headers.setdefault(name, value)

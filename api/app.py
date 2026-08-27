@@ -239,17 +239,27 @@ def _partner_launch(assertion: str, response_cls, *, test: bool):
     lane = partner._lane(test)
     if lane is None:
         raise HTTPException(404, "Not configured")
+    # MUST precede anything that touches firebase_admin — `mint_id_token`
+    # calls create_custom_token, which raises "The default Firebase app does
+    # not exist" if the SDK was never initialized. This init used to sit
+    # BELOW that call: every rejection test passed (they all fail before the
+    # mint) while the happy path 500'd on the very first real launch
+    # (inplayLABS, 2026-08-26). Initialize once, up front, for the whole
+    # sequence.
+    _init_firebase_admin()
+    from firebase_admin import auth as fb_auth
+
+    jti = "?"
     try:
         claims = partner.verify_assertion(assertion, test=test)
-        partner.consume_jti(str(claims["jti"]), int(claims["exp"]))
+        jti = str(claims["jti"])
+        partner.consume_jti(jti, int(claims["exp"]))
         tool = partner.tool_map()[claims["tool_id"]]
         uid = partner.uid_for_sub(str(claims["sub"]), prefix=lane.uid_prefix)
         partner.grant(uid, tool["slug"], claims["tool_id"],
                       window_days=lane.window_days)
         id_token = partner.mint_id_token(uid)
 
-        _init_firebase_admin()
-        from firebase_admin import auth as fb_auth
         window_seconds = lane.window_days * 24 * 60 * 60
         cookie_value = fb_auth.create_session_cookie(
             id_token, expires_in=timedelta(seconds=window_seconds))
@@ -257,6 +267,14 @@ def _partner_launch(assertion: str, response_cls, *, test: bool):
         # jti + hashed uid only — never the token, never the raw sub.
         logger.warning("ipl launch rejected: %s", exc.reason)
         raise HTTPException(403, "Launch could not be verified") from None
+    except Exception:  # noqa: BLE001 — our fault, not the assertion's
+        # Anything not a LaunchError is OUR defect (a missing init, a
+        # Firestore outage, a malformed IPL_TOOL_MAP). Distinguish it from
+        # 403 so the partner can tell "your assertion was fine, we broke"
+        # from "your assertion was refused" without a log round-trip.
+        logger.exception("ipl launch failed internally (jti=%s)", jti)
+        raise HTTPException(
+            500, "Launch verified but could not be completed") from None
 
     resp = response_cls(url=tool["dest"], status_code=303)
     resp.set_cookie(

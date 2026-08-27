@@ -298,3 +298,114 @@ def test_rejection_log_names_the_offending_issuer(keypair):
     assert f"received iss={wrong!r}" in msg
     assert f"expected iss={ISSUER!r}" in msg
     assert "member-12345" not in msg, "sub must never reach the logs"
+
+
+# ── Endpoint-level: the launch ROUTE, not just the verify helpers ───────────
+#
+# Every test above calls partner.* directly, so the whole route — jti burn,
+# grant, Firebase init, custom-token mint, session-cookie mint, redirect —
+# was NEVER executed by the suite. That is exactly how `_init_firebase_admin()`
+# came to sit BELOW the mint that needs it: all 22 rejection tests passed
+# because they fail before the mint, and the defect surfaced only on
+# inplayLABS' first real launch (2026-08-26, HTTP 500). These tests drive the
+# route end to end with the Firebase/Firestore edges faked.
+
+@pytest.fixture()
+def launch_client(monkeypatch, keypair):
+    import sys
+    for name in [m for m in list(sys.modules) if m == "api" or m.startswith("api.")]:
+        del sys.modules[name]
+    monkeypatch.setenv("IPL_JWKS_URL", "https://tracker.inplaylabs.io/.well-known/jwks.json")
+    monkeypatch.setenv("IPL_ISSUER", ISSUER)
+    monkeypatch.setenv("IPL_TOOL_MAP", TOOL_MAP)
+    monkeypatch.setenv("FIREBASE_API_KEY", "fake-key")
+
+    import api.app as app_mod
+    import api.partner as partner_mod
+
+    _, pub = keypair
+
+    class _FakeSigningKey:
+        key = pub
+
+    class _FakeJWKSClient:
+        def get_signing_key_from_jwt(self, token):
+            return _FakeSigningKey()
+
+    monkeypatch.setitem(partner_mod._jwks_clients,
+                        "https://tracker.inplaylabs.io/.well-known/jwks.json",
+                        _FakeJWKSClient())
+    calls = {"init": 0, "custom_token": 0, "granted": None, "burned": None}
+
+    def _init():
+        calls["init"] += 1
+    monkeypatch.setattr(app_mod, "_init_firebase_admin", _init)
+
+    from firebase_admin import auth as fb_auth
+
+    def _create_custom_token(uid):
+        # The real SDK raises ValueError here when the app was never
+        # initialized — reproduce that ordering dependency exactly.
+        if calls["init"] == 0:
+            raise ValueError("The default Firebase app does not exist.")
+        calls["custom_token"] += 1
+        return b"custom-token"
+
+    monkeypatch.setattr(fb_auth, "create_custom_token", _create_custom_token)
+    monkeypatch.setattr(fb_auth, "create_session_cookie",
+                        lambda id_token, expires_in: "session-cookie-value")
+    monkeypatch.setattr(partner_mod, "consume_jti",
+                        lambda jti, exp: calls.__setitem__("burned", jti))
+    monkeypatch.setattr(partner_mod, "grant",
+                        lambda uid, slug, tool_id, window_days: calls.__setitem__(
+                            "granted", (uid, slug, window_days)))
+
+    class _Resp:
+        status_code = 200
+        text = ""
+
+        @staticmethod
+        def json():
+            return {"idToken": "id-token"}
+
+    monkeypatch.setattr(partner_mod._requests, "post", lambda *a, **k: _Resp())
+
+    from fastapi.testclient import TestClient
+    return TestClient(app_mod.app, follow_redirects=False), calls
+
+
+def test_launch_endpoint_happy_path(launch_client, keypair):
+    """The whole route: verify → burn → grant → mint → cookie → 303."""
+    client, calls = launch_client
+    priv, _ = keypair
+    r = client.post("/partner/inplaylabs/launch",
+                    data={"assertion": make_assertion(priv)})
+    assert r.status_code == 303, r.text
+    assert r.headers["location"].startswith("https://")
+    assert calls["init"] >= 1, "Firebase must be initialized before the mint"
+    assert calls["custom_token"] == 1
+    assert calls["burned"] is not None, "jti must be burned"
+    uid, slug, _ = calls["granted"]
+    assert uid.startswith("ipl_") and slug == "nfl"
+    assert "__session" in r.headers.get("set-cookie", "")
+
+
+def test_launch_endpoint_rejects_bad_assertion_with_403(launch_client):
+    client, _ = launch_client
+    r = client.post("/partner/inplaylabs/launch", data={"assertion": "garbage"})
+    assert r.status_code == 403
+    assert "could not be verified" in r.text
+
+
+def test_internal_failure_is_500_not_403(launch_client, keypair, monkeypatch):
+    """A verified assertion that then hits OUR defect must not masquerade as
+    a rejection — the partner would chase a valid token forever."""
+    client, _ = launch_client
+    priv, _ = keypair
+    import api.partner as partner_mod
+    monkeypatch.setattr(partner_mod, "mint_id_token",
+                        lambda uid: (_ for _ in ()).throw(RuntimeError("boom")))
+    r = client.post("/partner/inplaylabs/launch",
+                    data={"assertion": make_assertion(priv)})
+    assert r.status_code == 500
+    assert "boom" not in r.text, "internal detail must not reach the partner"

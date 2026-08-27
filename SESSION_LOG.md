@@ -6,7 +6,7 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
-## 2026-08-27 — Apex-path cutover executed (this is the hub session log of record)
+## 2026-08-26 — Apex-path cutover executed (this is the hub session log of record)
 
 Full migration DONE in one day: dual-depth plumbing already dark across 8 repos;
 today the origin sweep (10 repos + audit workflow), port-80 redirect + legacy
@@ -64,10 +64,10 @@ SAMEORIGIN, everything else DENY; both branches pinned by test. 71 green.
 Verified live: `/` → DENY, `/__/auth/iframe` → SAMEORIGIN, `/og-default.png`
 → 200.
 
-## 2026-08-26 (cutover sweep) — apex-path origin forms for the 08-27 cutover
+## 2026-08-26 (cutover sweep) — apex-path origin forms for the cutover
 
 Origin/URL-form-only sweep for the apex-path migration (John approved cutover
-2026-08-27; legacy `<league>.SSA` subdomains 301 from then on).
+2026-08-26; legacy `<league>.SSA` subdomains 301 from then on).
 
 - All 8 static shells: league nav links + homepage directory cards now
   root-relative apex paths (`/nfl` `/ncaaf` `/cfl` `/golf` `/nba` `/nhl`

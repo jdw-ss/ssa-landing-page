@@ -207,7 +207,7 @@ def test_the_sitemap_and_the_indexable_set_agree(client):
     apex = {u.replace("https://sportsbookscienceanalytics.com", "") or "/"
             for u in _PORTFOLIO_URLS
             if u.startswith("https://sportsbookscienceanalytics.com")}
-    # Since the 2026-08-27 apex-path cutover the league surfaces share this
+    # Since the 2026-08-26 apex-path cutover the league surfaces share this
     # host but serve their own shells (and index metas) from their own repos
     # — the hub-side meta guard applies only to hub pages.
     apex = {path for path in apex
@@ -221,7 +221,7 @@ def test_the_sitemap_and_the_indexable_set_agree(client):
 # ── Security response headers ────────────────────────────────────────────────
 
 def test_security_headers_on_a_real_page(client):
-    """The QA sweep 2026-08-27 found none of these anywhere on the platform.
+    """The QA sweep 2026-08-26 found none of these anywhere on the platform.
     HSTS is the load-bearing one: the `__session` cookie is minted on the
     PARENT domain, so a downgrade on any host in the family exposes it — which
     is why includeSubDomains is pinned here, not just max-age."""
@@ -237,7 +237,7 @@ def test_security_headers_on_a_real_page(client):
 def test_og_default_card_exists_and_is_a_png(client):
     """Every shell in all ten repos hardcodes this absolute URL for og:image,
     twitter:image and the schema.org Organization logo. It 404'd from the SEO
-    pass until 2026-08-27, so every social share preview was broken — a
+    pass until 2026-08-26, so every social share preview was broken — a
     failure invisible from inside the app. Pin the asset, not just the route."""
     r = client.get("/og-default.png")
     assert r.status_code == 200

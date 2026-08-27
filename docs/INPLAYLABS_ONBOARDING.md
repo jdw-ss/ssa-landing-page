@@ -16,7 +16,7 @@ to negotiate and marked TBD. Architecture on our side: ADR-0002.
   - `ssa-cfl-model` — CFL ELO model (`sportsbookscienceanalytics.com/cfl`)
 
   (Apex-path form since the cutover; the legacy `<league>.SSA` subdomains
-  301 to these paths since 2026-08-27. The deployed `IPL_TOOL_MAP` dests
+  301 to these paths since 2026-08-26. The deployed `IPL_TOOL_MAP` dests
   should move to the apex-path form at the next env update.)
 - **Launch URL** (all tools, one endpoint):
   `POST https://sportsbookscienceanalytics.com/partner/inplaylabs/launch`

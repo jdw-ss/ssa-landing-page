@@ -500,7 +500,7 @@ async def og_default():
     og:image / twitter:image / the schema.org Organization logo. It had been
     referenced since the SEO pass but never actually existed (404 → every
     share preview and the Rich-Results logo broken); found by the
-    post-cutover QA sweep 2026-08-27. Long cache: the file is immutable in
+    post-cutover QA sweep 2026-08-26. Long cache: the file is immutable in
     practice and social scrapers cache aggressively anyway."""
     return FileResponse(STATIC_DIR / "og-default.png", media_type="image/png",
                         headers={"Cache-Control": "public, max-age=86400"})
@@ -533,7 +533,7 @@ async def robots():
 # from one file even if an individual league route hasn't been redeployed yet.
 # Both are live now and inert while robots.txt disallows — nothing to flip here
 # at launch.
-# Apex-path form since the 2026-08-27 cutover (legacy <league>.SSA subdomains
+# Apex-path form since the 2026-08-26 cutover (legacy <league>.SSA subdomains
 # 301 to these prefixes). /epl gets its own entry: the front-door carves it out
 # of /soccer, so the soccer sitemap no longer covers it.
 _LEAGUE_SITEMAPS = (
@@ -555,7 +555,7 @@ _PORTFOLIO_URLS = (
     "https://sportsbookscienceanalytics.com/terms",
     "https://sportsbookscienceanalytics.com/privacy",
     # League entries mirror each surface's declared canonical EXACTLY
-    # (trailing slash included) — apex-path form since the 2026-08-27
+    # (trailing slash included) — apex-path form since the 2026-08-26
     # cutover; EPL is deliberately flat, not /soccer/epl.
     "https://sportsbookscienceanalytics.com/nfl",
     "https://sportsbookscienceanalytics.com/nfl/elomodel/",
@@ -646,7 +646,7 @@ _SPA_FRAMED_PREFIX = "/__/"
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
-    """Portfolio security headers (John 2026-08-27, after the post-cutover QA
+    """Portfolio security headers (John 2026-08-26, after the post-cutover QA
     sweep found none of them on any host). Fill-in only — a route that set its
     own value keeps it. HSTS is UNCONDITIONAL, never gated on
     `request.url.scheme`: behind Cloud Run's proxy the inbound scheme reads as

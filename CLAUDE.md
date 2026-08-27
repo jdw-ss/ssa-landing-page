@@ -12,10 +12,14 @@ self-proxied at `/__/auth/*`; (3) the parent-domain `__session` SSO mint for
 ANY verified Google user (no allow-list — this is the customer path; league
 internal hosts keep their own `ADMIN_EMAILS` mints); (4) Stripe billing:
 `/pricing` → Checkout, `/account` + Customer Portal, and the webhook that
-writes Firestore entitlements. Status: **converted, not yet deployed** —
-paywall bootstrap pending (`./deploy.sh bootstrap`).
+writes Firestore entitlements. Status: **LIVE** — deployed on Cloud Run,
+Stripe bound (secret + webhook + every price ID) and selling since 2026-08-08;
+`/pricing` renders real prices from `/api/billing/catalog`. (The
+"Pricing announced at launch" string still in `pricing.html` is the no-JS
+SEED markup, not the live state — verified in-browser 2026-08-26. The
+launch-gate gotcha below describes the pre-launch behaviour and is history.)
 
-**Since 2026-08-27 this service is also the DEFAULT BACKEND of the apex front
+**Since 2026-08-26 this service is also the DEFAULT BACKEND of the apex front
 door** — one global ALB (`34.160.208.32`) fronting the whole family. The hub's
 own public URLs did not move (`/`, `/help`, `/pricing`, `/terms`, `/privacy`,
 `/signin`, `/account`), but it no longer owns the whole apex path namespace:
@@ -68,7 +72,7 @@ cd '/Users/johnwilson/Claude Projects/ssa-landing-page' && \
 - **Region**: `us-east1`
 - **Cloud Run service**: `ssa-landing`
 - **Custom domains**: `sportsbookscienceanalytics.com` (apex) + `www.…`
-- **Apex front door** (2026-08-27): global ALB `34.160.208.32` in this project,
+- **Apex front door** (2026-08-26): global ALB `34.160.208.32` in this project,
   `ssa-landing-be` as the urlmap default; league prefixes point at backend
   services in six projects. Built by `infra/apex-frontdoor.sh`. The old Cloud
   Run domain mappings stay during the soak as instant rollback
@@ -149,7 +153,7 @@ None.
   across ten repos hardcode the absolute apex URL for `og:image` /
   `twitter:image` / the schema.org Organization logo. Moving or renaming it
   breaks every social share preview in the portfolio silently (it 404'd
-  unnoticed from the SEO pass until the 2026-08-27 QA sweep).
+  unnoticed from the SEO pass until the 2026-08-26 QA sweep).
 - **Bump `TOS_VERSION` (api/entitlements.py) whenever `/terms` changes
   materially** — the session mint stamps the accepted version on
   `customers/{uid}` (best-effort, never blocks sign-in). The clickwrap line

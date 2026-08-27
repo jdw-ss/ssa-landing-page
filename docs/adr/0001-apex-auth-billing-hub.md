@@ -5,7 +5,7 @@
 **Project**: ssa-landing-page (portfolio-wide impact — every league service)
 
 > **Superseded in part by `ssa-landing-page/docs/adr/0003-apex-path-consolidation.md`
-> (2026-08-27)** — only the public-host topology assumed below. Public league
+> (2026-08-26)** — only the public-host topology assumed below. Public league
 > surfaces are now apex paths (`SSA.com/<league>`) behind one front door and the
 > `<league>.SSA` subdomains 301 permanently; `internal.<league>.SSA` is
 > unchanged. Every auth/billing decision here — the single sign-in origin, the

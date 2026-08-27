@@ -151,7 +151,7 @@ done)
   # Segment-boundary exact/prefix pair, mirroring the destination map's
   # [/epl, /epl/*] rules. A bare prefixMatch: /epl also swallows /epla and
   # /epl-standings and drops them into the FLAT apex namespace (QA sweep
-  # 2026-08-27) — latent today, wrong the moment a /epl-* soccer route exists.
+  # 2026-08-26) — latent today, wrong the moment a /epl-* soccer route exists.
   - priority: 1
     matchRules: [{fullPathMatch: /epl}]
     urlRedirect: {hostRedirect: ${APEX}, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}

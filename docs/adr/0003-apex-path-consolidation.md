@@ -1,7 +1,7 @@
 # ADR-0003: Apex-path consolidation (subdomains → SSA.com/‹league›)
 
-- **Status**: Accepted, executed 2026-08-27 (build 08-26/27, DNS cutover 08-27)
-- **Driver**: jdw; SEO analysis + decision 2026-08-26 ("Path A"), cutover GO 08-27
+- **Status**: Accepted, executed 2026-08-26 (build + DNS cutover same day)
+- **Driver**: jdw; SEO analysis + decision 2026-08-26 ("Path A"), cutover GO same day
 - **Supersedes the public half of** `cfl-elo-dashboard/docs/adr/0001-internal-public-hostname-split.md`
   (the internal half — `internal.‹league›.SSA`, Firebase + ADMIN_EMAILS — is unchanged)
 

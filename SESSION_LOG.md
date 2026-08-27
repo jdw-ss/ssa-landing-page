@@ -6,6 +6,20 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-08-27 — Apex-path cutover executed (this is the hub session log of record)
+
+Full migration DONE in one day: dual-depth plumbing already dark across 8 repos;
+today the origin sweep (10 repos + audit workflow), port-80 redirect + legacy
+301 host rules + legacy-hosts-cert on the front door, apex DNS flip (John),
+hub+league deploys with swept origins, IPL_TOOL_MAP → apex dests, full
+confirmation matrix (auth/billing/paywall/sitemaps/internal/rollback all
+green), then the 7 league hosts repointed → verified permanent 301s. Incidents:
+apex @ record transiently vanished after John's edit (re-added); nfl acme edit
+initially hit internal.nfl's record (restored); legacy cert forced through
+validation twice to skip failure backoff. ADR-0003 has the architecture;
+workspace APEX_MIGRATION_TRACKER.md has the blow-by-blow + the ~Oct teardown
+deadline (soccer/nfl LB cert renewals). Search Console re-registration = John.
+
 ## 2026-08-26 (cutover sweep) — apex-path origin forms for the 08-27 cutover
 
 Origin/URL-form-only sweep for the apex-path migration (John approved cutover

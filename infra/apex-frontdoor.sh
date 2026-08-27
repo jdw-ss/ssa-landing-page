@@ -148,10 +148,17 @@ done)
 - name: rd-soccer
   defaultService: https://www.googleapis.com/compute/v1/$(be_ref golf-data-projects ssa-landing-be)
   routeRules:
+  # Segment-boundary exact/prefix pair, mirroring the destination map's
+  # [/epl, /epl/*] rules. A bare prefixMatch: /epl also swallows /epla and
+  # /epl-standings and drops them into the FLAT apex namespace (QA sweep
+  # 2026-08-27) — latent today, wrong the moment a /epl-* soccer route exists.
   - priority: 1
-    matchRules: [{prefixMatch: /epl}]
+    matchRules: [{fullPathMatch: /epl}]
     urlRedirect: {hostRedirect: ${APEX}, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}
   - priority: 2
+    matchRules: [{prefixMatch: /epl/}]
+    urlRedirect: {hostRedirect: ${APEX}, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}
+  - priority: 3
     matchRules: [{prefixMatch: /}]
     urlRedirect: {hostRedirect: ${APEX}, prefixRedirect: /soccer/, redirectResponseCode: MOVED_PERMANENTLY_DEFAULT, stripQuery: false}
 YAML

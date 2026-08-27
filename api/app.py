@@ -493,6 +493,19 @@ async def account_page():
     return _page("account.html", cache="no-store")
 
 
+@app.get("/og-default.png", include_in_schema=False)
+async def og_default():
+    """The portfolio's social-preview card, served at the ROOT path because
+    every shell across all ten repos hardcodes the absolute apex URL for
+    og:image / twitter:image / the schema.org Organization logo. It had been
+    referenced since the SEO pass but never actually existed (404 → every
+    share preview and the Rich-Results logo broken); found by the
+    post-cutover QA sweep 2026-08-27. Long cache: the file is immutable in
+    practice and social scrapers cache aggressively anyway."""
+    return FileResponse(STATIC_DIR / "og-default.png", media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/robots.txt", include_in_schema=False)
 async def robots():
     # LAUNCH GATE OPENED 2026-08-16 (John). `static/robots.txt` is now

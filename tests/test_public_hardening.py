@@ -216,3 +216,15 @@ def test_the_sitemap_and_the_indexable_set_agree(client):
         f"the apex sitemap URLs and the indexable set disagree: "
         f"sitemap-only={apex - set(INDEXABLE_PAGES)}, "
         f"meta-only={set(INDEXABLE_PAGES) - apex}")
+
+
+def test_og_default_card_exists_and_is_a_png(client):
+    """Every shell in all ten repos hardcodes this absolute URL for og:image,
+    twitter:image and the schema.org Organization logo. It 404'd from the SEO
+    pass until 2026-08-27, so every social share preview was broken — a
+    failure invisible from inside the app. Pin the asset, not just the route."""
+    r = client.get("/og-default.png")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/png"
+    assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
+    assert len(r.content) > 10_000

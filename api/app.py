@@ -575,7 +575,7 @@ _PORTFOLIO_URLS = (
     # League entries mirror each surface's declared canonical EXACTLY
     # (trailing slash included) — apex-path form since the 2026-08-26
     # cutover; EPL is deliberately flat, not /soccer/epl.
-    "https://sportsbookscienceanalytics.com/nfl",
+    "https://sportsbookscienceanalytics.com/nfl/",
     "https://sportsbookscienceanalytics.com/nfl/elomodel/",
     "https://sportsbookscienceanalytics.com/nfl/mockdrafts",
     "https://sportsbookscienceanalytics.com/ncaaf/",
@@ -584,7 +584,7 @@ _PORTFOLIO_URLS = (
     "https://sportsbookscienceanalytics.com/nhl/",
     "https://sportsbookscienceanalytics.com/soccer/",
     "https://sportsbookscienceanalytics.com/epl/",
-    "https://sportsbookscienceanalytics.com/golf",
+    "https://sportsbookscienceanalytics.com/golf/",
 )
 
 # First path segments owned by league backends on the apex host. Their pages

@@ -262,3 +262,42 @@ def test_firebase_handshake_paths_keep_sameorigin():
     assert policy("/__/firebase/init.json") == "SAMEORIGIN"
     assert policy("/") == "DENY"
     assert policy("/api/health") == "DENY"
+
+
+# ── Asset paths must survive the apex prefix (2026-08-27) ───────────────────
+
+def test_no_root_absolute_asset_paths_in_js():
+    """`<base href="/<league>/">` rewrites RELATIVE urls only — a root-absolute
+    "/static/..." ignores it entirely and resolves against the apex origin,
+    where it hits the front door's DEFAULT backend (this service) and 404s.
+
+    A root-absolute path is only acceptable when explicitly joined to
+    `window.__ROOT__`; a BARE one is the bug.
+
+    That is exactly how every ncaaf team logo broke on the apex surface while
+    the internal host stayed fine: logos.js is a GENERATED data file, so it was
+    missed by the shell/public.js relativisation pass and by the greps that
+    only looked at shells. Guard the whole js tree, not one file.
+
+    This repo is the apex hub itself and is always served at the root, so the
+    breakage does not show up HERE — which is precisely why it needs a guard:
+    `static/js/account.js` is vendored byte-identically into all nine surfaces,
+    so a bare root-absolute path written against this repo's unprefixed reality
+    ships to eight prefixed ones and loads the hub's copy of the asset instead
+    of the league's own."""
+    import re
+    from pathlib import Path
+    js_dir = Path(__file__).resolve().parent.parent / "static" / "js"
+    offenders = []
+    for f in js_dir.rglob("*.js"):
+        for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("//") or stripped.startswith("*"):
+                continue  # prose, including this rule's own explanation
+            if "__ROOT__" in line:
+                continue  # explicitly prefix-joined — the correct form
+            if re.search(r"""["']/static/""", line):
+                offenders.append(f"{f.name}:{i}: {stripped[:90]}")
+    assert not offenders, (
+        "root-absolute /static/ paths break under the apex prefix:\n  "
+        + "\n  ".join(offenders))

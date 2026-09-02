@@ -83,8 +83,9 @@ SKUS: dict[str, dict] = {
         "label": "Golf Package",
         "kind": "sport",
         "slugs": ["golf"],
-        "blurb": "Tournament predictions refreshed every 3 hours — composite "
-                 "player rankings, course fit, and strokes-gained analysis.",
+        "blurb": "Head-to-head and 3-ball matchup grades, win odds and the "
+                 "value index, and the DFS lineup builder — refreshed every "
+                 "3 hours during tournament weeks.",
     },
     "bundle_football": {
         "label": "Football Bundle",

@@ -90,6 +90,31 @@
         }
         .free-strip strong { color: var(--accent); font-weight: 600; }
 
+        .catalog-status {
+            max-width: 1000px;
+            margin: 28px auto 0;
+            padding: 0 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13.5px;
+            line-height: 1.6;
+        }
+        .catalog-status.hidden { display: none; }
+        .catalog-status button {
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dim);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 14px;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .catalog-status button:hover { border-color: var(--accent); color: var(--text); }
+
         .section-label {
             max-width: 1000px;
             margin: 40px auto 0;
@@ -126,6 +151,7 @@
         .plan.bundle:hover { border-color: var(--accent); box-shadow: 0 8px 30px rgba(88, 166, 255, 0.12); }
         .plan.all { border-color: rgba(167, 139, 250, 0.5); }
         .plan.all:hover { border-color: var(--accent-2); box-shadow: 0 8px 30px rgba(167, 139, 250, 0.14); }
+        .plan.linked { border-color: var(--accent); }
 
         .save-chip {
             position: absolute;
@@ -300,10 +326,10 @@
            of what you've paid for.</p>
     </header>
 
-    <div class="banner info" id="banner"></div>
+    <div class="banner info" id="banner" role="status"></div>
 
     <div class="free-strip">
-        <strong>Power rankings are free on every league site — no account needed.</strong><br>
+        <strong>Every league site has a free tier — no account needed.</strong><br>
         Packages add the actionable layer: schedules with predicted lines and picks,
         forecast grids, and team detail sheets.
     </div>
@@ -313,6 +339,18 @@
         <button type="button" data-term="6mo" aria-pressed="false">6 months
             <span class="term-save">Save 50%</span></button>
     </div>
+
+    <noscript>
+        <!-- Static ladder — keep in step with LAUNCH_PRICE_CENTS
+             (api/entitlements.py) whenever prices change. -->
+        <div class="catalog-status">
+            Checkout needs JavaScript. The packages: CFL, NCAAF, NFL, and Golf
+            at $99.99/month each ($299.99 per 6 months), the NCAAF+NFL Football
+            Bundle at $149.99/month ($449.99 per 6 months), and All-Access at
+            $299.99/month ($899.99 per 6 months).
+        </div>
+    </noscript>
+    <div class="catalog-status hidden" id="catalog-status" role="status"></div>
 
     <div class="section-label">Per-sport packages</div>
     <div class="grid" id="sport-grid"></div>
@@ -368,6 +406,7 @@
         function planCard(item, data) {
             const el = document.createElement("div");
             el.className = "plan" + (item.kind === "bundle" ? " bundle" : item.kind === "all" ? " all" : "");
+            if (item.kind === "sport") el.dataset.sport = item.slugs[0];
 
             // Both non-sport SKUs are priced at 25% off the sum of their parts
             // (John, 2026-08-08); All-Access additionally absorbs future sports.
@@ -560,10 +599,37 @@
             });
         });
 
+        // ?sport=<slug> deep link — league lock cards and rankings teasers
+        // mint it. Scroll the matching card into view with a passing accent
+        // border (the bundle-card treatment).
+        function highlightSportParam() {
+            const sport = qs.get("sport");
+            if (!sport || !window.CSS || !CSS.escape) return;
+            const card = document.querySelector('.plan[data-sport="' + CSS.escape(sport) + '"]');
+            if (!card) return;
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+            card.classList.add("linked");
+            setTimeout(() => card.classList.remove("linked"), 3500);
+        }
+
         async function render() {
-            const resp = await fetch("/api/billing/catalog", { credentials: "same-origin" });
-            CATALOG = await resp.json();
-            renderGrids();
+            const status = document.getElementById("catalog-status");
+            status.classList.remove("hidden");
+            status.textContent = "Loading packages…";
+            try {
+                const resp = await fetch("/api/billing/catalog", { credentials: "same-origin" });
+                if (!resp.ok) throw new Error("catalog HTTP " + resp.status);
+                CATALOG = await resp.json();
+                renderGrids();
+            } catch (e) {
+                CATALOG = null;
+                status.innerHTML = "Couldn't load the packages — check your connection and " +
+                    '<button type="button" id="catalog-retry">try again</button>';
+                document.getElementById("catalog-retry").addEventListener("click", render);
+                return;
+            }
+            status.classList.add("hidden");
+            highlightSportParam();
         }
 
         render();

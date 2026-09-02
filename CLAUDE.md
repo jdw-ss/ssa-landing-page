@@ -180,6 +180,11 @@ None.
 - **`static/help/index.html` FAQ answers exist TWICE** — visible `<details>`
   AND the FAQPage JSON-LD in `<head>`. Google requires them to match; edit
   both in the same commit (the 2026-08-13 legal pass tripped on this).
+- **`/pricing` carries a `<noscript>` price ladder as static text** — it names
+  every package and price so no-JS visitors aren't left with blank grids. It
+  cannot read `/api/billing/catalog`, so whenever prices change
+  (`LAUNCH_PRICE_CENTS` in `api/entitlements.py`), update the `<noscript>`
+  block in `static/pricing.html` in the same commit or it quotes stale prices.
 
 - **Launch gate: /pricing shows NO dollar amounts and no purchase path until
   Stripe is configured on the service.** Prices are DECIDED (2026-08-08,

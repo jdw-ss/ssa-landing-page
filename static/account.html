@@ -114,6 +114,20 @@
 
         .empty { color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
         .empty a { color: var(--accent); text-decoration: none; }
+        .empty button {
+            font: inherit;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--text-dim);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 12px;
+            margin-left: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .empty button:hover { border-color: var(--accent); color: var(--text); }
 
         .actions { display: flex; flex-wrap: wrap; gap: 12px; }
         .actions button, .actions a {
@@ -171,7 +185,7 @@
     <main>
         <h1>Your account</h1>
 
-        <div class="banner" id="banner"></div>
+        <div class="banner" id="banner" role="status"></div>
 
         <div id="loading" class="loading">Loading your account…</div>
 
@@ -241,7 +255,7 @@
             const wrap = document.getElementById("packages");
             if (!me.packages || !me.packages.length) {
                 wrap.innerHTML = '<div class="empty">No packages yet. ' +
-                    'Power rankings are free on every league site — when you want the ' +
+                    'Every league site has a free tier — when you want the ' +
                     'picks, forecasts and team sheets, <a href="/pricing">pick a package</a>.</div>';
                 return;
             }
@@ -263,6 +277,35 @@
                     "<div class='renew'>" + detail + "</div></div>" +
                     "<span class='status " + statusClass + "'>" + statusLabel + "</span>";
                 wrap.appendChild(row);
+            }
+        }
+
+        // A failed /api/me must never render the no-packages upsell — a
+        // paying customer on a flaky connection would read as unsubscribed.
+        function renderLoadError() {
+            const wrap = document.getElementById("packages");
+            wrap.innerHTML = '<div class="empty">Couldn\'t load your packages — ' +
+                "your access on the league sites is unaffected. " +
+                '<button type="button" id="pkg-retry">Retry</button></div>';
+            document.getElementById("pkg-retry").addEventListener("click", loadPackages);
+        }
+
+        async function loadPackages() {
+            document.getElementById("packages").innerHTML =
+                '<div class="empty">Loading your packages…</div>';
+            try {
+                const resp = await fetch("/api/me", { credentials: "same-origin" });
+                if (resp.ok) {
+                    renderPackages(await resp.json());
+                } else if (resp.status === 503) {
+                    document.getElementById("packages").innerHTML =
+                        '<div class="empty">Package info is temporarily unavailable — ' +
+                        "your access on the league sites is unaffected. Try again shortly.</div>";
+                } else {
+                    renderLoadError();
+                }
+            } catch (e) {
+                renderLoadError();
             }
         }
 
@@ -288,20 +331,7 @@
                 avatar.textContent = (user.email[0] || "?").toUpperCase();
             }
 
-            try {
-                const resp = await fetch("/api/me", { credentials: "same-origin" });
-                if (resp.ok) {
-                    renderPackages(await resp.json());
-                } else if (resp.status === 503) {
-                    document.getElementById("packages").innerHTML =
-                        '<div class="empty">Package info is temporarily unavailable — ' +
-                        "your access on the league sites is unaffected. Try again shortly.</div>";
-                } else {
-                    renderPackages({ packages: [] });
-                }
-            } catch (e) {
-                renderPackages({ packages: [] });
-            }
+            await loadPackages();
 
             document.getElementById("loading").classList.add("hidden");
             document.getElementById("content").classList.remove("hidden");

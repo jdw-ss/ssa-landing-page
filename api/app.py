@@ -458,7 +458,10 @@ async def firebase_auth_proxy(path: str, request: Request):
 
 # ── Pages ────────────────────────────────────────────────────────────────────
 
-def _page(name: str, cache: str = "public, max-age=300") -> FileResponse:
+def _page(name: str, cache: str = "no-cache") -> FileResponse:
+    # HTML is no-cache (DESIGN_SYSTEM.md §3) so bumped ?v= asset params reach
+    # returning visitors; only /static/* takes public, max-age=300. Auth-state
+    # pages (/signin, /account) pass "no-store".
     return FileResponse(STATIC_DIR / name, headers={"Cache-Control": cache})
 
 

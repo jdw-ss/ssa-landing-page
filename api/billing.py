@@ -184,9 +184,12 @@ def _get_or_create_customer(user: dict) -> str:
     return customer.id
 
 
-def create_checkout_session(user: dict, sku: str, term: str = "monthly") -> str:
+def create_checkout_session(user: dict, sku: str, term: str = "monthly",
+                            origin_sport: str = "") -> str:
     """Create a subscription Checkout session for one (SKU, term); returns the
-    URL."""
+    URL. `origin_sport` is the league the buyer came from (the ?sport= deep
+    link) — allow-listed and echoed on the success URL so /account can point
+    its post-checkout banner at the right dashboard."""
     _validate_term(term)
     if sku not in ent.SKUS:
         raise HTTPException(404, f"Unknown package: {sku}")
@@ -226,6 +229,14 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly") -> str:
     if ent.covered(held, ent.SKUS[sku]["slugs"]):
         raise HTTPException(409, "Your current packages already include this")
 
+    # The success URL names the SKU so /account can poll /api/me until this
+    # exact purchase lands, plus the buyer's origin league when the pricing
+    # page was reached via a ?sport= deep link. Allow-listed values only —
+    # both land in a URL (sku was validated against ent.SKUS above).
+    success_url = f"{_base_url()}/account?checkout=success&sku={sku}"
+    if origin_sport in ent.SPORT_SLUGS:
+        success_url += f"&sport={origin_sport}"
+
     session = stripe.checkout.Session.create(
         mode="subscription",
         customer=customer_id,
@@ -238,7 +249,7 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly") -> str:
         client_reference_id=user["uid"],
         subscription_data={"metadata": {"uid": user["uid"], "sku": sku, "term": term}},
         integration_identifier="ssa-paywall-checkout-kvqhmwrz",
-        success_url=f"{_base_url()}/account?checkout=success",
+        success_url=success_url,
         cancel_url=f"{_base_url()}/pricing?checkout=canceled",
     )
     return session.url

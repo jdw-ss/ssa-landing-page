@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=4">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=5">
     <script>
         // The apex is the ONE auth origin (FIREBASE_AUTH_DOMAIN) — canonicalize
         // www → apex before any auth code runs so the OAuth handshake origin
@@ -173,7 +173,7 @@
             <div class="account-stub">
                 <button id="account-btn" aria-haspopup="true" aria-expanded="false">
                     <span>Account</span>
-                    <span style="font-size: 10px;">▾</span>
+                    <span style="font-size: 10px;" aria-hidden="true">▾</span>
                 </button>
                 <div class="account-stub-menu" id="account-menu">
                     <a class="item" href="/signin?next=%2Faccount">Sign in</a>
@@ -188,14 +188,14 @@
              apparently-signed-in visitor here so bootstrap's self-heal can
              re-mint the parent cookie. No card, no popup — just this line
              for the moment before location.replace(next). -->
-        <div id="silent-wait" class="loading hidden">One moment&hellip;</div>
+        <div id="silent-wait" class="loading hidden" role="status">One moment&hellip;</div>
         <div class="card" id="signin-card">
             <h1>Sign in to SSA</h1>
             <p class="lede">One account across every league site — CFL, NCAAF, NFL, Golf and everything still to come.</p>
 
             <div class="error-box" id="error-box" role="alert"></div>
 
-            <div id="state-loading" class="loading">Checking your session…</div>
+            <div id="state-loading" class="loading" role="status">Checking your session…</div>
 
             <div id="state-signedout" class="hidden">
                 <button class="google-btn" id="google-btn">
@@ -227,7 +227,7 @@
         <p class="site-footer-legal">Sportsbook Science LLC does not endorse, recommend or support illegal betting or gambling under any circumstances. All information on this site is for entertainment purposes only and is not intended to be used in any direct or indirect violation of local, state, federal or international law(s).</p>
     </footer>
 
-    <script src="/static/js/account.js?v=6" defer></script>
+    <script src="/static/js/account.js?v=7" defer></script>
     <script>
         // Only same-site destinations — a foreign ?next= must never turn this
         // page into an open redirect.

@@ -144,7 +144,7 @@
         btn.innerHTML =
             '<span class="acct-btn-avatar">' + avatar + "</span>" +
             "<span>" + esc(email.split("@")[0]) + "</span>" +
-            '<span style="font-size:10px;">▾</span>';
+            '<span style="font-size:10px;" aria-hidden="true">▾</span>';
 
         let html =
             '<div class="acct-id">' +

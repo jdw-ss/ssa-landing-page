@@ -185,6 +185,25 @@ None.
   cannot read `/api/billing/catalog`, so whenever prices change
   (`LAUNCH_PRICE_CENTS` in `api/entitlements.py`), update the `<noscript>`
   block in `static/pricing.html` in the same commit or it quotes stale prices.
+- **`/api/billing/catalog` is a cross-surface contract — additive fields
+  only.** League public lock cards fetch and render it (wave 1, 2026-09-02).
+  It now also carries per-SKU `free_features` / `paid_features` (the /pricing
+  free-vs-paid checklist, wave 2); those lists MIRROR each league public
+  shell's tab ladder ("Free" vs "Subscribers" tags), so when a repo's tabs
+  change, update `SKUS` in `api/entitlements.py` in the same pass.
+- **/pricing emits Product/Offer JSON-LD at render, gated on `show_prices`.**
+  Prices come from the same catalog payload the cards display, so structured
+  data can never disagree with checkout; while the launch gate hides amounts
+  there is deliberately NO JSON-LD at all (a price a crawler can read that the
+  page doesn't display is a Merchant-listing violation).
+- **The post-checkout loop is closed client-side (E4, 2026-09-02).** Checkout
+  success URLs are `/account?checkout=success&sku=<sku>[&sport=<slug>]` —
+  `sport` is the buyer's origin league (`?sport=` deep link into /pricing),
+  allow-listed against `SPORT_SLUGS` in `billing.py` because it lands in a
+  URL. `/account` polls `/api/me` every ~3s for up to ~30s until that SKU
+  appears, then re-renders the packages panel and deep-links the unlocked
+  dashboard (NFL links both modules). Webhook logic is untouched — the poll
+  just watches for the entitlement write to land.
 
 - **Launch gate: /pricing shows NO dollar amounts and no purchase path until
   Stripe is configured on the service.** Prices are DECIDED (2026-08-08,

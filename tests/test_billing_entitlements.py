@@ -208,6 +208,32 @@ def test_checkout_refuses_a_partial_overlap_and_points_at_the_upgrade(monkeypatc
     assert "upgrade" in str(exc.value.detail).lower()
 
 
+def test_checkout_success_url_names_the_sku_and_allowlisted_origin(monkeypatch):
+    """E4 (2026-09-02): /account?checkout=success polls /api/me for the success
+    URL's &sku= and deep-links the buyer's origin league via &sport=. The sport
+    value lands in a URL, so anything outside SPORT_SLUGS must be dropped —
+    never echoed."""
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_CFL", "price_cfl_m")
+    sessions = []
+    fake = _fake_stripe([])
+    fake.checkout = types.SimpleNamespace(Session=types.SimpleNamespace(
+        create=lambda **kw: sessions.append(kw) or types.SimpleNamespace(
+            url="https://checkout.stripe.com/s")))
+    monkeypatch.setattr(billing, "_stripe", lambda: fake)
+    monkeypatch.setattr(billing, "_get_or_create_customer", lambda user: "cus_1")
+    monkeypatch.setattr(ent, "get_entitlements", lambda uid: {"slugs": [], "packages": []})
+
+    billing.create_checkout_session({"uid": "u", "email": "a@b.c"}, "sport_cfl",
+                                    origin_sport="cfl")
+    assert sessions[-1]["success_url"].endswith(
+        "/account?checkout=success&sku=sport_cfl&sport=cfl")
+
+    billing.create_checkout_session({"uid": "u", "email": "a@b.c"}, "sport_cfl",
+                                    origin_sport="javascript:evil")
+    assert sessions[-1]["success_url"].endswith(
+        "/account?checkout=success&sku=sport_cfl")
+
+
 # ── Terms: 6-month prices, term switches, and the downgrade block (2026-08-08) ─
 
 def _six_sub(sid, status, price_id, meta=None):
@@ -403,3 +429,23 @@ def test_display_ladder_is_the_decided_2026_08_08_numbers(monkeypatch):
     assert ent.display_cents("all_access") == 19999
     item = next(i for i in ent.catalog() if i["sku"] == "all_access")
     assert (item["monthly_cents"], item["six_month_cents"]) == (19999, 89999)
+
+
+def test_catalog_carries_a_feature_list_for_every_sku():
+    """E7 (2026-09-02): the /pricing free-vs-paid checklist. Additive fields
+    only — league lock cards read this payload. The free lists mirror each
+    public shell's tab ladder ("Free" tags); bundle/All-Access summarise
+    instead of repeating, so their free list is empty by design."""
+    items = {i["sku"]: i for i in ent.catalog()}
+    for sku, item in items.items():
+        assert isinstance(item["free_features"], list), sku
+        assert isinstance(item["paid_features"], list), sku
+        assert item["paid_features"], f"{sku} must say what it unlocks"
+    # Free tiers as shipped on the league public shells today.
+    assert items["sport_cfl"]["free_features"] == ["Power rankings"]
+    assert items["sport_ncaaf"]["free_features"] == ["Power rankings"]
+    assert "Mock-draft consensus board" in items["sport_nfl"]["free_features"]
+    assert items["sport_golf"]["free_features"] == [
+        "Tournament preview", "Course analysis", "Player trends"]
+    assert items["bundle_football"]["free_features"] == []
+    assert items["all_access"]["free_features"] == []

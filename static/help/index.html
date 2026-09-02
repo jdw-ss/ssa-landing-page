@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=4">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=5">
 
     <!-- FAQPage structured data. Every question/answer below is the VERBATIM
          copy of a <details> block in <main>. Google requires structured-data
@@ -231,11 +231,11 @@
         <a href="/soccer/" class="site-nav-link">Soccer</a>
         <div class="nav-right">
             <a href="/pricing" class="nav-right-link">Pricing</a>
-            <a href="/help" class="nav-right-link active">Help</a>
+            <a href="/help" class="nav-right-link active" aria-current="page">Help</a>
             <div class="account-stub">
                 <button id="account-btn" aria-haspopup="true" aria-expanded="false">
                     <span>Account</span>
-                    <span style="font-size: 10px;">▾</span>
+                    <span style="font-size: 10px;" aria-hidden="true">▾</span>
                 </button>
                 <div class="account-stub-menu" id="account-menu">
                     <a class="item" href="/signin?next=%2Fhelp">Sign in</a>
@@ -360,6 +360,6 @@
         <p class="site-footer-legal">Sportsbook Science LLC does not endorse, recommend or support illegal betting or gambling under any circumstances. All information on this site is for entertainment purposes only and is not intended to be used in any direct or indirect violation of local, state, federal or international law(s).</p>
     </footer>
 
-    <script src="/static/js/account.js?v=6" defer></script>
+    <script src="/static/js/account.js?v=7" defer></script>
 </body>
 </html>

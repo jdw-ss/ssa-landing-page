@@ -107,6 +107,7 @@ class _SessionLogin(BaseModel):
 class _CheckoutBody(BaseModel):
     sku: str
     term: str = "monthly"  # "monthly" | "6mo" — validated in api/billing.py
+    sport: str = ""        # buyer-origin league (?sport= deep link) — allow-listed in billing.py
 
 
 # ── Open routes ──────────────────────────────────────────────────────────────
@@ -385,7 +386,7 @@ async def billing_catalog(user: Optional[dict] = Depends(optional_session_user))
 @app.post("/api/billing/checkout")
 async def billing_checkout(body: _CheckoutBody, user: dict = Depends(require_session_user)):
     url = await asyncio.to_thread(
-        billing.create_checkout_session, user, body.sku, body.term)
+        billing.create_checkout_session, user, body.sku, body.term, body.sport)
     return {"url": url}
 
 

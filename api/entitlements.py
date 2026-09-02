@@ -56,6 +56,11 @@ TOS_VERSION = "2026-08-13"
 # also sells a 6-month prepaid term at 50% off six monthly cycles — six months
 # for the price of three. Real amounts come from the PRICE_DISPLAY_* envs; the
 # derivations below only shape the placeholder ladder.
+#
+# free_features / paid_features (2026-09-02): the /pricing free-vs-paid
+# checklist. Each list MIRRORS the live product — the league public shell's
+# tab ladder ("Free" tags vs "Subscribers" tags) — so keep them in step when
+# a repo's tabs change. Bundle/All-Access summarise instead of repeating.
 SKUS: dict[str, dict] = {
     "sport_cfl": {
         "label": "CFL Package",
@@ -63,6 +68,10 @@ SKUS: dict[str, dict] = {
         "slugs": ["cfl"],
         "blurb": "Full CFL model access — power rankings, weekly schedule with "
                  "predicted lines and picks, forecasted records, and team detail sheets.",
+        "free_features": ["Power rankings"],
+        "paid_features": ["Schedule & picks with predicted lines",
+                          "Season forecast — projected records",
+                          "Team detail sheets"],
     },
     "sport_ncaaf": {
         "label": "NCAAF Package",
@@ -71,6 +80,10 @@ SKUS: dict[str, dict] = {
         "blurb": "College football, modeled — power rankings, schedule with lines "
                  "and picks, the Monte Carlo forecast grid with CFP odds, and team "
                  "cheat sheets.",
+        "free_features": ["Power rankings"],
+        "paid_features": ["Schedule & picks with predicted lines",
+                          "Monte Carlo forecast grid with CFP odds",
+                          "Team detail sheets"],
     },
     "sport_nfl": {
         "label": "NFL Package",
@@ -78,6 +91,12 @@ SKUS: dict[str, dict] = {
         "slugs": ["nfl"],
         "blurb": "Both NFL modules — the ELO model (rankings, schedule picks, "
                  "playoff forecast) and the mock-draft aggregator.",
+        "free_features": ["ELO power rankings",
+                          "Mock-draft consensus board"],
+        "paid_features": ["Schedule & picks with predicted lines",
+                          "Playoff forecast + season overview",
+                          "Team detail sheets",
+                          "Full mock-draft board and trends"],
     },
     "sport_golf": {
         "label": "Golf Package",
@@ -86,6 +105,11 @@ SKUS: dict[str, dict] = {
         "blurb": "Head-to-head and 3-ball matchup grades, win odds and the "
                  "value index, and the DFS lineup builder — refreshed every "
                  "3 hours during tournament weeks.",
+        "free_features": ["Tournament preview",
+                          "Course analysis",
+                          "Player trends"],
+        "paid_features": ["Head-to-head & 3-ball matchup grades",
+                          "DFS lineup builder"],
     },
     "bundle_football": {
         "label": "Football Bundle",
@@ -93,6 +117,9 @@ SKUS: dict[str, dict] = {
         "slugs": ["ncaaf", "nfl"],
         "blurb": "NCAAF and NFL together at 25% off the combined price. "
                  "Every Saturday and every Sunday, one subscription.",
+        "free_features": [],
+        "paid_features": ["Everything in the NCAAF Package",
+                          "Everything in the NFL Package"],
     },
     "all_access": {
         "label": "All-Access",
@@ -101,6 +128,9 @@ SKUS: dict[str, dict] = {
         "blurb": "Everything, everywhere — every sport and every module at 25% "
                  "off the combined price, including new sports as they launch "
                  "at no extra cost.",
+        "free_features": [],
+        "paid_features": ["Every package for every sport",
+                          "New sports included as they launch"],
     },
 }
 
@@ -145,6 +175,10 @@ def catalog() -> list[dict]:
             "kind": spec["kind"],
             "slugs": spec["slugs"],
             "blurb": spec["blurb"],
+            # Additive (2026-09-02) — league lock cards read this payload, so
+            # existing keys never change shape.
+            "free_features": spec["free_features"],
+            "paid_features": spec["paid_features"],
             "monthly_cents": display_cents(sku),
             "six_month_cents": display_cents(sku, "6mo"),
         }

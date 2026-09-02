@@ -6,7 +6,28 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
-## 2026-08-26 — Apex-path cutover executed (this is the hub session log of record)
+## 2026-09-02 — UX wave 2: post-checkout loop, free-vs-paid matrix, JSON-LD, ARIA pass
+
+E4: checkout success URLs now carry `&sku=<sku>` and (when the buyer arrived
+via a `?sport=`/league `?next=` deep link) an allow-listed `&sport=<slug>`;
+`/account?checkout=success` polls `/api/me` every ~3s for up to ~30s until the
+purchased SKU appears, re-renders the packages panel, and flips the banner to
+"<Package> active — open <dashboard link>" (NFL links both modules; origin
+sport wins over SKU derivation). The "refresh this page" instruction is gone.
+E7: per-SKU `free_features`/`paid_features` added to the catalog
+(api/entitlements.py, ADDITIVE — league lock cards read this payload),
+populated from the live public shells' tab ladders; /pricing renders them as a
+two-group checklist (free group quieter; bundle/All-Access summarise).
+E12: /pricing emits Product/Offer JSON-LD at render from the live catalog —
+prices are the same cents the cards display — gated on `show_prices`, so the
+launch gate suppresses structured data too (replaces the head TODO).
+ARIA pass on all 8 apex shells: `aria-current="page"` on the active
+nav-right link, `aria-hidden` on the ▾ glyphs (incl. account.js → ?v=7
+everywhere), `role="status"` on the remaining JS-swapped loading/empty
+containers (account #loading + package states, signin wait states).
+Tests: 82 passed (python3.13), incl. 2 new (success-URL allow-listing,
+catalog feature lists). NOT deployed; committed by John's wave-2 close-out.
+(A concurrent wave-2 stream owned tokens.css?v=5 + token reorder — untouched.)
 
 Full migration DONE in one day: dual-depth plumbing already dark across 8 repos;
 today the origin sweep (10 repos + audit workflow), port-80 redirect + legacy

@@ -7,10 +7,15 @@
     <meta name="description" content="Terms of Service for Sportsbook Science Analytics — subscription terms, disclaimers, and responsible-gaming information.">
     <title>Terms of Service — Sportsbook Science Analytics</title>
     <link rel="canonical" href="https://sportsbookscienceanalytics.com/terms">
+    <!-- E45: SSA monogram favicon. A data-URI SVG cannot read CSS custom
+         properties, so it embeds the token VALUES: #0b0f16 = --bg (rounded
+         square), #58a6ff = --accent (monogram). /favicon.ico is served by an
+         explicit api/app.py route with the same SVG. -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230b0f16'/><text x='32' y='42' text-anchor='middle' font-family='Inter,-apple-system,sans-serif' font-size='26' font-weight='800' letter-spacing='-1.5' fill='%2358a6ff'>SSA</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=5">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=6">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -63,6 +68,10 @@
     </style>
 </head>
 <body>
+    <!-- E18: skip past the chrome. preventDefault keeps location.hash clean
+         (harmless here, load-bearing on the hash-routed league SPAs — one
+         construction everywhere). -->
+    <a class="skip-link" href="#main-content" onclick="event.preventDefault();document.getElementById('main-content').focus();">Skip to main content</a>
     <nav class="site-nav">
         <a href="/" class="site-nav-brand">SSA</a>
         <div class="site-nav-divider"></div>
@@ -89,7 +98,7 @@
         </div>
     </nav>
 
-    <main>
+    <main id="main-content" tabindex="-1">
         <h1>Terms of Service</h1>
         <div class="doc">
 <p><strong>Effective date: August 13, 2026</strong></p>

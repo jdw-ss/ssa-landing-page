@@ -149,6 +149,13 @@ None.
   middleware is fill-in only (`setdefault`), and it must stay registered at
   module END: Starlette wraps later registrations OUTERMOST, which is what
   makes the www 301 and the 404 fallback carry the headers.
+- **`/favicon.ico` is a real route (E45, wave 3).** An explicit `api/app.py`
+  handler returns the SSA monogram SVG (`image/svg+xml`, long cache) so the
+  bare request browsers and crawlers always make no longer falls through the
+  catch-all to the 404 page. The SVG must stay byte-in-step with the inline
+  `data:` favicon in every apex shell's `<head>`; the hex literals in both
+  are token VALUES (#0b0f16 = `--bg`, #58a6ff = `--accent`) because a
+  standalone SVG cannot read CSS custom properties.
 - **`/og-default.png` is served from the ROOT, not `/static/`** — twelve shells
   across ten repos hardcode the absolute apex URL for `og:image` /
   `twitter:image` / the schema.org Organization logo. Moving or renaming it
@@ -203,7 +210,13 @@ None.
   URL. `/account` polls `/api/me` every ~3s for up to ~30s until that SKU
   appears, then re-renders the packages panel and deep-links the unlocked
   dashboard (NFL links both modules). Webhook logic is untouched — the poll
-  just watches for the entitlement write to land.
+  just watches for the entitlement write to land. Legacy success URLs minted
+  before `&sku=` existed can't name the purchase; since wave 3 the poll only
+  declares their success when the package COUNT grows past the pre-poll
+  render (a package merely existing proves a PRIOR purchase, not this one).
+  Each package row's name also deep-links its product via the same
+  `dashLinksFor` helper (E5) — NFL both modules, bundle both leagues,
+  All-Access the homepage.
 
 - **Launch gate: /pricing shows NO dollar amounts and no purchase path until
   Stripe is configured on the service.** Prices are DECIDED (2026-08-08,
@@ -249,8 +262,14 @@ None.
   check expiry, so the daily sweep (`POST /partner/inplaylabs/sweep`, Cloud
   Scheduler + `IPL_SWEEP_TOKEN` header) is what actually revokes them. If
   partner members report access that never expires, check the scheduler.
-- **Homepage Live / Coming-Soon badges are manual and drift.** When a league
-  launches its public surface, flip its card here (CFL sat stale once already).
+- **League live/coming-soon status has ONE declared authority:
+  `LEAGUE_STATUS` in `api/entitlements.py` (E45, wave 3).** The homepage card
+  badges (static/index.html) and the /help live-products copy (which exists
+  TWICE — visible FAQ and FAQPage JSON-LD) are still static text, but
+  `tests/test_league_status_drift.py` parses all three statements and fails
+  the suite on any disagreement with the map — this exact drift already bit
+  CFL (stale Coming-Soon after launch). When a league launches: flip the map
+  AND the homepage card AND both /help copies in the same commit.
 - **The apex is INDEXABLE as of 2026-08-16 — the launch gate is open.** John's
   call; `static/robots.txt` is `Allow: /` with the sitemap reference and the
   `noindex` metas came off `/`, `/pricing`, `/terms`, `/privacy` (`/help` was

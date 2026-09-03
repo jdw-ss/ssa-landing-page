@@ -5,10 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Your account — Sportsbook Science Analytics</title>
+    <!-- E45: SSA monogram favicon. A data-URI SVG cannot read CSS custom
+         properties, so it embeds the token VALUES: #0b0f16 = --bg (rounded
+         square), #58a6ff = --accent (monogram). /favicon.ico is served by an
+         explicit api/app.py route with the same SVG. -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230b0f16'/><text x='32' y='42' text-anchor='middle' font-family='Inter,-apple-system,sans-serif' font-size='26' font-weight='800' letter-spacing='-1.5' fill='%2358a6ff'>SSA</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=5">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=6">
     <script>
         if (location.hostname.startsWith("www.")) {
             location.replace(location.protocol + "//" + location.hostname.slice(4) +
@@ -99,7 +104,13 @@
         }
         .pkg:last-child { border-bottom: none; }
         .pkg .name { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+        /* E5: the name deep-links the product the package pays for. */
+        .pkg .name a { color: inherit; text-decoration: none; }
+        .pkg .name a:hover, .pkg .name a:focus-visible { color: var(--accent); text-decoration: underline; }
         .pkg .renew { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+        .pkg-links { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+        .pkg-links a { color: var(--accent); text-decoration: none; }
+        .pkg-links a:hover, .pkg-links a:focus-visible { text-decoration: underline; }
         .status {
             font-size: 0.68rem;
             font-weight: 700;
@@ -157,6 +168,10 @@
     </style>
 </head>
 <body>
+    <!-- E18: skip past the chrome. preventDefault keeps location.hash clean
+         (harmless here, load-bearing on the hash-routed league SPAs — one
+         construction everywhere). -->
+    <a class="skip-link" href="#main-content" onclick="event.preventDefault();document.getElementById('main-content').focus();">Skip to main content</a>
     <nav class="site-nav">
         <a href="/" class="site-nav-brand">SSA</a>
         <div class="site-nav-divider"></div>
@@ -183,7 +198,7 @@
         </div>
     </nav>
 
-    <main>
+    <main id="main-content" tabindex="-1">
         <h1>Your account</h1>
 
         <div class="banner" id="banner" role="status"></div>
@@ -271,13 +286,21 @@
             return (m && DASH_LINKS[m[1]]) || [];
         }
 
+        // The package count the panel last rendered — the pre-poll baseline
+        // for legacy no-sku activations. null until /api/me has answered once.
+        let lastPackageCount = null;
+
         // Poll /api/me every ~3s for up to ~30s until the purchased package
         // (named by the success URL's &sku=) appears, then re-render the
         // packages panel and flip the banner to the unlocked product.
-        // Sessions minted before &sku= existed settle for any package.
+        // Legacy sessions minted before &sku= existed can't name the
+        // purchase, so for them the only trustworthy signal is the package
+        // COUNT growing past the pre-poll render — a package merely existing
+        // proves a PRIOR purchase, not this one.
         async function pollForActivation() {
             const sku = params.get("sku") || "";
             const sport = params.get("sport") || "";
+            let prePollCount = lastPackageCount;
             const deadline = Date.now() + 30000;
             for (;;) {
                 try {
@@ -296,10 +319,17 @@
                             banner.className = "banner show success";
                             return;
                         }
-                        if (!sku && pkgs.length) {
-                            renderPackages(me);
-                            showBanner("Payment received — your packages are active below.", "success");
-                            return;
+                        if (!sku) {
+                            if (prePollCount === null) {
+                                // Initial page load never answered — the first
+                                // successful look becomes the baseline instead
+                                // of reading as the activation.
+                                prePollCount = pkgs.length;
+                            } else if (pkgs.length > prePollCount) {
+                                renderPackages(me);
+                                showBanner("Payment received — your packages are active below.", "success");
+                                return;
+                            }
                         }
                     }
                 } catch (e) { /* transient — keep polling */ }
@@ -324,6 +354,7 @@
 
         function renderPackages(me) {
             const wrap = document.getElementById("packages");
+            lastPackageCount = (me.packages || []).length;
             if (!me.packages || !me.packages.length) {
                 wrap.innerHTML = '<div class="empty" role="status">No packages yet. ' +
                     'Every league site has a free tier — when you want the ' +
@@ -343,9 +374,23 @@
                 const statusClass = p.status === "active" ? "active"
                     : p.status === "past_due" ? "past_due" : "other";
                 const statusLabel = p.status === "past_due" ? "payment issue" : p.status;
+                // E5: the name links what the package unlocks (same
+                // dashLinksFor the checkout banner uses — NFL both modules,
+                // bundle both leagues, All-Access the homepage). The anchor
+                // takes the first destination; when there's more than one,
+                // a links line lists them all.
+                const links = dashLinksFor(p.sku, "");
+                const name = links.length
+                    ? '<a href="' + links[0][1] + '">' + esc(p.label) + "</a>"
+                    : esc(p.label);
+                const open = links.length > 1
+                    ? "<div class='pkg-links'>Open " + links
+                        .map((l) => '<a href="' + l[1] + '">' + esc(l[0]) + "</a>")
+                        .join(" · ") + "</div>"
+                    : "";
                 row.innerHTML =
-                    "<div><div class='name'>" + p.label + "</div>" +
-                    "<div class='renew'>" + detail + "</div></div>" +
+                    "<div><div class='name'>" + name + "</div>" +
+                    "<div class='renew'>" + detail + "</div>" + open + "</div>" +
                     "<span class='status " + statusClass + "'>" + statusLabel + "</span>";
                 wrap.appendChild(row);
             }

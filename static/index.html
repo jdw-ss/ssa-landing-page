@@ -20,10 +20,15 @@
     <meta name="twitter:description" content="ELO power rankings, predicted lines and Monte Carlo season forecasts across NFL, NCAAF, CFL, NBA, NHL, Soccer and Golf.">
     <meta name="twitter:image" content="https://sportsbookscienceanalytics.com/og-default.png">
 
+    <!-- E45: SSA monogram favicon. A data-URI SVG cannot read CSS custom
+         properties, so it embeds the token VALUES: #0b0f16 = --bg (rounded
+         square), #58a6ff = --accent (monogram). /favicon.ico is served by an
+         explicit api/app.py route with the same SVG. -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230b0f16'/><text x='32' y='42' text-anchor='middle' font-family='Inter,-apple-system,sans-serif' font-size='26' font-weight='800' letter-spacing='-1.5' fill='%2358a6ff'>SSA</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/tokens.css?v=5">
+    <link rel="stylesheet" href="/static/css/tokens.css?v=6">
 
     <script type="application/ld+json">
     {
@@ -160,23 +165,20 @@
             border-radius: 20px;
         }
 
-        /* Availability labels, not model output — so they take brand chrome, not
-           the data greens/reds. Matches the identical .card-badge on soccer-hub
-           and the NFL landing, which were already blue; the apex was the only
-           surface rendering the same "Live" pill green. */
-        .badge-live {
+        /* Availability labels, not model output — so they take brand chrome,
+           not the data greens/reds. E45 (wave 3): ONE badge class set on the
+           three surfaces that render availability badges (apex, NFL landing,
+           soccer-hub). Base .card-badge IS the live look; .soon and .archive
+           are the muted states. */
+        .card-badge {
             background: var(--accent-wash);
             color: var(--accent);
         }
 
-        .badge-soon {
+        .card-badge.soon,
+        .card-badge.archive {
             background: var(--border-subtle);
             color: var(--text-muted);
-        }
-
-        .badge-seasonal {
-            background: rgba(230, 194, 107, 0.15);
-            color: var(--warn);
         }
 
         footer {
@@ -199,6 +201,10 @@
     </style>
 </head>
 <body>
+    <!-- E18: skip past the chrome. preventDefault keeps location.hash clean
+         (harmless here, load-bearing on the hash-routed league SPAs — one
+         construction everywhere). -->
+    <a class="skip-link" href="#main-content" onclick="event.preventDefault();document.getElementById('main-content').focus();">Skip to main content</a>
     <nav class="site-nav">
         <a href="/" class="site-nav-brand">SSA</a>
         <div class="site-nav-divider"></div>
@@ -225,7 +231,7 @@
         </div>
     </nav>
 
-    <header>
+    <header id="main-content" tabindex="-1">
         <h1>Sportsbook Science Analytics</h1>
         <p>Data-driven sports analytics tools for smarter decisions</p>
     </header>
@@ -235,49 +241,49 @@
             <span class="card-icon">&#127944;</span>
             <h2>NFL Tools</h2>
             <p>The NFL ELO model — power rankings, schedule picks, playoff forecast — plus the mock-draft aggregator tracking player stock daily.</p>
-            <span class="card-badge badge-live">Live</span>
+            <span class="card-badge">Live</span>
         </a>
 
         <a href="/ncaaf/" class="card live">
             <span class="card-icon">&#127944;</span>
             <h2>NCAAF Model</h2>
             <p>College football model — ELO power ratings for all 136 FBS teams, predicted lines and weekly picks, plus the Monte Carlo forecast with conference and CFP odds.</p>
-            <span class="card-badge badge-live">Live</span>
+            <span class="card-badge">Live</span>
         </a>
 
         <a href="/cfl/" class="card live">
             <span class="card-icon">&#127944;</span>
             <h2>CFL ELO Dashboard</h2>
             <p>ELO-based power ranking, predicted lines, and forecasted records for every CFL team.</p>
-            <span class="card-badge badge-live">Live</span>
+            <span class="card-badge">Live</span>
         </a>
 
         <a href="/golf/" class="card live">
             <span class="card-icon">&#9971;</span>
             <h2>Golf Tournament Predictor</h2>
             <p>Composite player rankings, strokes gained analysis, course fit scoring, and tournament history — updated every 3 hours.</p>
-            <span class="card-badge badge-live">Live</span>
+            <span class="card-badge">Live</span>
         </a>
 
         <a href="/nba/" class="card">
             <span class="card-icon">&#127936;</span>
             <h2>NBA Model</h2>
             <p>Pregame model combining player props, team matchups, and historical trends to surface value picks across NBA markets.</p>
-            <span class="card-badge badge-soon">Coming Soon</span>
+            <span class="card-badge soon">Coming Soon</span>
         </a>
 
         <a href="/nhl/" class="card">
             <span class="card-icon">&#127954;</span>
             <h2>NHL Model</h2>
             <p>Pregame model analyzing goaltender matchups, team form, and line movements to identify value across NHL markets.</p>
-            <span class="card-badge badge-soon">Coming Soon</span>
+            <span class="card-badge soon">Coming Soon</span>
         </a>
 
         <a href="/soccer/" class="card">
             <span class="card-icon">&#9917;</span>
             <h2>Soccer Model</h2>
             <p>Soccer model built on ELO power ratings — match-line probabilities priced against the market, plus season forecasts for the title race, European places and relegation. Starting with the Premier League.</p>
-            <span class="card-badge badge-soon">Coming Soon</span>
+            <span class="card-badge soon">Coming Soon</span>
         </a>
     </div>
 

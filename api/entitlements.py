@@ -43,6 +43,27 @@ SPORT_SLUGS = ["cfl", "ncaaf", "nfl", "golf", "soccer", "nba", "nhl"]
 # pick them up automatically via the "all" slug.
 SELLABLE_SPORTS = ["cfl", "ncaaf", "nfl", "golf"]
 
+# ── League launch status ─────────────────────────────────────────────────────
+# The ONE declared authority for which leagues are live vs. coming soon
+# (E45, wave 3). The homepage card badges (static/index.html) and the /help
+# "what leagues" copy (visible FAQ + FAQPage JSON-LD) state the same facts as
+# static text — they have drifted before (CFL, Soccer). They stay static on
+# purpose; tests/test_league_status_drift.py parses them and fails the suite
+# on any disagreement with this map. When a league launches: flip it here AND
+# update static/index.html + static/help/index.html (both FAQ copies) in the
+# same commit. Values: "live" | "coming-soon".
+# Distinct from SELLABLE_SPORTS: that list is about Stripe SKUs; a league
+# could launch a free public surface (live) before it sells a package.
+LEAGUE_STATUS: dict[str, str] = {
+    "nfl": "live",
+    "ncaaf": "live",
+    "cfl": "live",
+    "golf": "live",
+    "soccer": "coming-soon",
+    "nba": "coming-soon",
+    "nhl": "coming-soon",
+}
+
 # ── Terms of Service ─────────────────────────────────────────────────────────
 # Bump when /terms changes materially. The session mint stamps the version a
 # customer accepted onto customers/{uid} (record_tos_acceptance below); the

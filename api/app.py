@@ -528,6 +528,31 @@ async def og_default():
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+# E45 (wave 3): the SSA monogram favicon, identical to the inline data-URI in
+# every apex shell's <head>. Browsers, crawlers and old bookmarks request the
+# bare /favicon.ico unconditionally, and until this route it fell through the
+# catch-all to the 404 page. An SVG body with the right content-type is
+# favicon-legal in every modern browser. The hex literals ARE tokens by value —
+# a standalone SVG cannot read CSS custom properties: #0b0f16 = --bg (rounded
+# square), #58a6ff = --accent (monogram). Keep in step with the shells' data-URI.
+_FAVICON_SVG = (
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>"
+    "<rect width='64' height='64' rx='12' fill='#0b0f16'/>"
+    "<text x='32' y='42' text-anchor='middle' "
+    "font-family='Inter,-apple-system,sans-serif' font-size='26' "
+    "font-weight='800' letter-spacing='-1.5' fill='#58a6ff'>SSA</text></svg>"
+)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(
+        content=_FAVICON_SVG,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @app.get("/robots.txt", include_in_schema=False)
 async def robots():
     # LAUNCH GATE OPENED 2026-08-16 (John). `static/robots.txt` is now

@@ -45,6 +45,12 @@
   align-items: center;
   gap: 24px;
   flex-wrap: wrap;
+  /* E17 (wave 3): the L1 row sticks to the viewport top. z-index 30 clears
+     every in-page sticky cell (forecast grids use 3/4); the account dropdown
+     (z 100) lives INSIDE this stacking context so it still paints above. */
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 .site-nav-brand {
   text-decoration: none;
@@ -79,7 +85,67 @@
   font-weight: 600;
 }
 @media (max-width: 600px) {
-  .site-nav { gap: 14px; padding: 8px 14px; }
+  /* E23 (wave 3): single-row horizontal scroll instead of wrapping. The
+     edge fade is a sticky final flex item pinned to the scrollport's right
+     edge (it returns to its flow position — the end of the row — at full
+     scroll, so the affordance disappears exactly when there is nothing
+     more to reach). Fade colour = --bg-elev, the nav's own surface. */
+  .site-nav {
+    gap: 14px;
+    padding: 8px 14px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .site-nav::-webkit-scrollbar { display: none; }
+  .site-nav::after {
+    content: "";
+    position: sticky;
+    right: 0;
+    flex: none;
+    align-self: stretch;
+    width: 28px;
+    margin-left: -28px;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(to left, var(--bg-elev), transparent);
+  }
+  .site-nav-brand, .site-nav-link, .nav-right-link { white-space: nowrap; }
+  .site-nav-divider, .nav-right { flex: none; }
+  /* The scroll container clips absolutely-positioned descendants, so the
+     account dropdown escapes it as position: fixed. The L1 row is sticky at
+     top 0 and ~50px tall, so a fixed top just below it is correct at every
+     scroll position. */
+  .account-stub-menu { position: fixed; top: 54px; right: 10px; }
+}
+
+/* ── Skip link (E18, wave 3) — first element of <body>, visually parked
+   off-screen until keyboard focus lands on it. Filled control → dark label
+   (white on --accent fails AA; DESIGN_SYSTEM.md §1). ─────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -9999px;
+  left: 16px;
+  z-index: 40;               /* above the sticky .site-nav (30) */
+  background: var(--accent);
+  color: var(--bg);
+  padding: 8px 14px;
+  border-radius: 0 0 8px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus { top: 0; }
+
+/* E18: keyboard focus ring on the chrome links (mouse clicks stay clean —
+   :focus-visible). */
+.site-nav-link:focus-visible,
+.subsite-nav-link:focus-visible,
+.nav-right-link:focus-visible,
+.site-footer-links a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ── Account stub — the header's Account control, hydrated by

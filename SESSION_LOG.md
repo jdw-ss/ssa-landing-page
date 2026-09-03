@@ -6,6 +6,31 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-02 — SSA UX program bookmark: waves 1+3 + deploys (wave 2 logged below)
+
+The portfolio-wide UX audit (225 verified findings; report + E1-E45 menu on the
+session artifact) drove three same-day implementation waves, all deployed.
+This repo's slices beyond the wave-2 entry below:
+
+- Wave 1 (2220675): /help FAQ rewritten to the apex-path reality (visible +
+  FAQPage JSON-LD, kept verbatim-matched); pricing free-tier claim corrected +
+  golf SKU blurb sells the actual paid features; pricing gained loading/error/
+  noscript states and /account a distinct fetch-error card (no more paying
+  customer rendered as unsubscribed); aria-live on the checkout path;
+  /pricing?sport= scroll+highlight; HTML Cache-Control now no-cache per the
+  contract (signin/account keep no-store).
+- Token canonicalization (3ca8b4d): tokens.css §1 block rewritten to the fleet
+  variant — the doc + this repo were the two outliers.
+- Wave 3 (8464d38): /account package rows link what they unlock (origin sport
+  only wins when the SKU covers it); LEAGUE_STATUS map + drift-guard tests
+  parse index.html badges and /help copy (unknown badge modifiers fail
+  loudly); legacy no-sku checkout polling only trusts a package-count
+  increase; SSA monogram favicon everywhere + an explicit /favicon.ico route;
+  skip links, accent focus rings, sticky nav, unified availability badges.
+
+Deployed and live-verified (favicon 200 image/svg+xml, no-cache headers,
+badges/copy guards green). Open tail lives in ~/Claude Projects/ideas.md.
+
 ## 2026-09-02 — UX wave 2: post-checkout loop, free-vs-paid matrix, JSON-LD, ARIA pass
 
 E4: checkout success URLs now carry `&sku=<sku>` and (when the buyer arrived

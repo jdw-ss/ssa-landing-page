@@ -10,8 +10,13 @@ Model (John's decisions, 2026-07-30; terms added 2026-08-08):
   - Stackable à la carte: EACH purchase is its own Stripe subscription; a
     customer's access is the union of slugs across active subscriptions.
   - Bundles/All-Access are just SKUs whose price covers multiple slugs.
-  - Upgrades (sport → bundle/all-access, and monthly → 6-month) swap the price
-    on the existing subscription, prorated, instead of stacking a second one.
+  - Upgrades (sport → bundle/all-access, and monthly → 6-month) replace the
+    superseded subscriptions instead of stacking a second one. Since
+    2026-08-26 an upgrade is a NEW Checkout for the target plan
+    (apply_plan_change); the webhook cancels the replaced subscriptions with
+    prorate=True only after checkout.session.completed, crediting their
+    unused time to the customer balance. The in-place prorated price swap
+    of 2026-08-07 is retired.
   - No free trials. Promotion codes allowed at checkout; the friend codes are
     100%-off-forever, single-use each (scripts/stripe_bootstrap_live.py).
 
@@ -211,7 +216,9 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly",
     # checking out the Football Bundle here would leave BOTH billing — the
     # customer paying for what the bundle alone grants, with the redundant one
     # hidden behind "✓ Included". Same for buying the 6-month term of a package
-    # already held monthly. Send them through the prorated swap instead.
+    # already held monthly. Send them through the upgrade flow instead
+    # (apply_plan_change: a new Checkout, then the webhook retires the
+    # replaced subscriptions with proration once it completes).
     replaceable, blocked = _scan_changes(customer_id, sku, term)
     if blocked:
         raise HTTPException(
@@ -267,18 +274,18 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly",
 # and the redundant card then renders "✓ Included in All-Access" so the
 # still-charging subscription becomes invisible on the pricing page.
 #
-# The fix is to CHANGE the existing subscription's price rather than start a new
-# one. Stripe then prorates: it credits the unused remainder of the old plan and
-# charges the remainder of the new one, so the customer pays only the difference
-# for the time left in the period, and the full new price from the next renewal.
-#
-# Terms (2026-08-08) ride the same mechanism: monthly → 6-month on the SAME SKU
-# is a price swap too, just with the billing anchor reset so the fresh 6-month
-# period starts at the moment of purchase (Stripe still credits the unused
-# monthly time against it). The one asymmetry: a change may never LOWER the
-# term. Swapping a prepaid 6-month package onto a monthly price would strand
-# months of credit against a cheaper plan; those attempts are BLOCKED with a
-# pointer at the 6-month version of the target.
+# The 2026-08-07 fix CHANGED the existing subscription's price in place
+# (Subscription.modify, prorated), and terms (2026-08-08) rode the same swap.
+# That mechanism was retired on 2026-08-26 (see apply_plan_change): an upgrade
+# is now a NEW Checkout for the target (SKU, term), and only after
+# checkout.session.completed does the webhook cancel the replaced
+# subscriptions with prorate=True. Their unused time becomes customer-balance
+# credit against future invoices, so the new plan's full price is due at
+# checkout. The same flow covers monthly → 6-month on the SAME SKU. The one
+# asymmetry left: a change may never LOWER the term on the same SKU (6-month
+# NCAAF → monthly NCAAF); that attempt is BLOCKED (_raise_blocked). A bigger
+# package on monthly against a held 6-month one is an ordinary upgrade now
+# (see _scan_changes).
 
 
 def _scan_changes(customer_id: str, target_sku: str,
@@ -360,13 +367,13 @@ def plan_change_preview(user: dict, sku: str, term: str = "monthly") -> dict:
     """What buying (`sku`, `term`) would actually do, WITHOUT doing it.
 
     Returns `kind: "new"` when nothing is superseded (ordinary Checkout), or
-    `kind: "upgrade"` plus the exact prorated amount Stripe would charge now.
-    The amount is computed by Stripe, not by us — it depends on how much of the
-    current period is left, so it is NOT simply the difference in plan price.
-    When several subscriptions give way at once, the quote covers the primary
-    swap; the extras' unused time arrives as additional credit on the same
-    invoice (see apply_plan_change), so the real charge is never MORE than
-    quoted.
+    `kind: "upgrade"` with the labels of the subscriptions it replaces. Since
+    2026-08-26 the upgrade quote is the target's plain package price
+    (`ent.display_cents`, returned as both `due_now_cents` and `then_cents`),
+    not a Stripe proration preview: the upgrade is a new Checkout, and the
+    replaced subscriptions' unused time lands as customer-balance credit
+    against future invoices once the webhook cancels them (see
+    apply_plan_change).
     """
     _validate_term(term)
     if sku not in ent.SKUS:

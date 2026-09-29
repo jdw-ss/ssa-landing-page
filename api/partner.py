@@ -11,18 +11,28 @@ the public paywall — works unchanged.
 Load-bearing design facts (full rationale in docs/adr/0002):
 
 - UID NAMESPACE ISOLATION. Partner uids are ``ipl_<sha256(sub)[:24]>``
-  (test lane: ``ipltest_``). These uids never enter Stripe checkout, so the
-  webhook's full-overwrite ``_recompute`` can never clobber a partner
-  entitlement, and the standing "only the Stripe webhook writes
+  (test lane: ``ipltest_``). The standing "only the Stripe webhook writes
   entitlements/{uid}" ruling survives with one carve-out: this module is
   the ONLY other writer, and ONLY for its own uid prefixes. The guard in
-  :func:`grant` enforces that at runtime.
+  :func:`grant` enforces that at runtime. The design ASSUMES these uids
+  never enter Stripe checkout, so the webhook's full-overwrite
+  ``_recompute`` never touches a partner doc. As of 2026-09-29 no code
+  enforces that assumption. /api/billing/checkout accepts an ``ipl_*``
+  session, and billing.create_checkout_session has no prefix check. A
+  partner member who buys would have their doc rewritten by ``_recompute``
+  (``grants``/``source``/``expires_at`` dropped), and the next launch's
+  :func:`grant` ``set()`` would then drop the Stripe slugs. This is an open
+  issue for John to decide (ADR-0001 Amendment item 2).
 
 - OPAQUE-ONLY. We request no email from the partner (John, 2026-08-25).
-  The signed ``sub`` is the stable account key. The account widget on
-  league sites keys on email so partner members see "Sign in" in the
-  header; paid tabs still unlock because data gating is pure server-side
-  cookie. Cosmetic, revisit later.
+  The signed ``sub`` is the stable account key. The shared account widget
+  keys on email, so it would render "Sign in" for a partner member. Since
+  2026-08-26 static/js/account.js detects an email-less ``ipl_``/
+  ``ipltest_`` uid and renders an inert "inplayLABS Member" chip instead
+  (renderPartnerMember). That chip matters for more than looks: the "Sign
+  in" link would Google-auth the member into a fresh, entitlement-less
+  account that replaces their partner session. Paid tabs unlock either way,
+  because data gating is pure server-side cookie.
 
 - 7-DAY WINDOW (John, 2026-08-25). Session cookie AND entitlement expire
   ``WINDOW_DAYS`` after the most recent launch; every launch from the

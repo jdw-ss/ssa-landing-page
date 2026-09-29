@@ -394,11 +394,14 @@ async def billing_checkout(body: _CheckoutBody, user: dict = Depends(require_ses
 async def billing_change_preview(
     sku: str, term: str = "monthly", user: dict = Depends(require_session_user)
 ):
-    """What buying (`sku`, `term`) would do: an ordinary new subscription, or a
-    prorated upgrade that replaces something the customer already has (a bigger
-    package, or the same package moving monthly → 6-month). Read-only — the
-    pricing page calls this to label the button and show the real amount before
-    anyone is charged."""
+    """What buying (`sku`, `term`) would do: an ordinary new subscription, or an
+    upgrade that replaces something the customer already has (a bigger
+    package, or the same package moving monthly → 6-month). Since 2026-08-26
+    an upgrade is a new Checkout at the plain package price; the replaced
+    subscriptions' unused time becomes customer-balance credit after the
+    webhook cancels them (billing.apply_plan_change). Read-only — the pricing
+    page calls this to label the button and show the amount before anyone is
+    charged."""
     plan = await asyncio.to_thread(billing.plan_change_preview, user, sku, term)
     return JSONResponse(plan, headers={"Cache-Control": "private, no-store"})
 

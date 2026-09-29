@@ -44,15 +44,24 @@ applies to the league apps. Architecture of record:
 - **Data layer**: Firestore in the shared `ssa-auth-71d16` project —
   `customers/{uid}` (written at first checkout; the session mint stamps the
   accepted ToS version) + `entitlements/{uid}`, which has TWO writers: the
-  Stripe webhook (full-overwrite recompute for every Google-sign-in
-  customer) and the ADR-0002 inplayLABS bridge (`api/partner.py`, only
+  Stripe webhook (a full-overwrite recompute, run only for a uid that has a
+  `checkout.session.completed` or `customer.subscription.*` event, resolved
+  from the session's `client_reference_id`, the subscription's `uid`
+  metadata or a reverse lookup of `customers/{uid}` by Stripe customer id;
+  checkout does not refuse partner sessions, so today that uid can be an
+  `ipl_*` one) and the ADR-0002 inplayLABS bridge (`api/partner.py`, only
   synthetic `ipl_*`/`ipltest_*` uids). See the partner-writer gotcha.
 - **Billing**: Stripe Checkout + Customer Portal + webhook (`api/billing.py`);
   SKU catalog + slugs + the decided launch price ladder
   (`LAUNCH_PRICE_CENTS`, John 2026-08-08) in `api/entitlements.py`. Two
   billing TERMS per SKU — monthly and 6-month prepaid (50% off six cycles);
-  upgrades (sport → bundle/all, monthly → 6-month) swap the existing
-  subscription's price with proration via `/api/billing/change`
+  upgrades (sport → bundle/all, monthly → 6-month) go through
+  `/api/billing/change`, which since 2026-08-26 opens a NEW Stripe Checkout
+  for the target plan (no promo codes). Nothing changes until that checkout
+  completes: on `checkout.session.completed` the webhook cancels the replaced
+  subscriptions with `prorate=True`, and their unused time becomes
+  customer-balance credit against future invoices. The old in-place
+  `Subscription.modify` price swap is gone (see `apply_plan_change`)
 - **Auth**: firebase-admin session cookies (`api/auth.py`); shared
   `ssa-auth-71d16` Firebase project; `static/js/auth.js` façade (vendored,
   same as every league) + `static/js/account.js` (the Account widget all apex

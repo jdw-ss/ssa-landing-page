@@ -39,6 +39,19 @@ touching six league repos or the Stripe machinery.
    gains exactly one carve-out, enforced at runtime: `partner.grant()`
    refuses any uid outside `ipl_`/`ipltest_`.
 
+   > **[Amended 2026-09-29]** "Partner uids never enter Stripe checkout" is
+   > an expectation. No code enforces it. The `grant()` guard works in one
+   > direction only: it keeps the partner writer off customer docs, but
+   > nothing on the checkout path refuses an `ipl_*`/`ipltest_*` session.
+   > `/api/billing/checkout` requires only a session user,
+   > `create_checkout_session` has no uid-prefix check, and /pricing shows a
+   > signed-in partner member Subscribe buttons. If a partner member buys,
+   > the webhook's full-overwrite `_recompute` rewrites their doc and drops
+   > `grants`, `source` and `expires_at`. The next launch's `grant()`
+   > `set()` then drops the Stripe slugs. The fix is an open issue for John
+   > to decide. See ADR-0001 Amendment item 2 and the caveat on the
+   > partner-writer gotcha in `CLAUDE.md`.
+
 3. **Opaque-only** (John): no email requested from the partner. The signed
    `sub` is the account key; the raw value never appears in uids or logs
    (hashed). Known cosmetic cost: the shared account widget keys on email,

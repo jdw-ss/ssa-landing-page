@@ -50,6 +50,47 @@ an invariant.
 
 Tests: 87 passed (python3.13), unchanged from the pre-edit baseline.
 
+**Follow-up (same day, second pass).** The verifier's residual list covered
+the docs that still stated the old facts. Docs, docstrings and comments
+only; the AST of each edited .py file matches HEAD once docstrings are
+stripped.
+
+- **ADR-0002 decision 2**: a `[Amended 2026-09-29]` note says "partner uids
+  never enter Stripe checkout" is an expectation that no code enforces
+  (checkout accepts an `ipl_*` session), and names both clobber paths. The
+  decision text is untouched.
+- **`api/partner.py` module docstring**: UID NAMESPACE ISOLATION now calls
+  the no-checkout property an unenforced assumption and points at the open
+  issue. OPAQUE-ONLY now describes the "inplayLABS Member" chip that
+  `account.js` has rendered since 2026-08-26 (it said "Sign in").
+- **CLAUDE.md data layer**: the webhook recomputes only for a uid with a
+  checkout or subscription event (not "every Google-sign-in customer"), and
+  today that uid can be an `ipl_*` one.
+- **Upgrades**: the `api/billing.py` module docstring, the
+  `create_checkout_session` comment, the plan-change section comment, the
+  `plan_change_preview` docstring, the `/api/billing/change-preview`
+  docstring in `api/app.py` and CLAUDE.md's billing line described the
+  retired in-place prorated price swap. They now describe the 2026-08-26
+  flow: a new Checkout, then the webhook cancels the replaced subscriptions
+  with `prorate=True` after `checkout.session.completed`.
+- **Workspace docs**: `PROJECT_INDEX.md` says the uid disjointness is
+  expected but not enforced at checkout (open, John deciding).
+  `ADR_INDEX.md` puts this repo's 0003 (2026-08-26) and 0002 (2026-08-25)
+  rows in date order, and moves the ffxiv 0002 (2026-08-23) row below the
+  2026-08-24 rows, where it was already out of order.
+
+**Still stale, NOT changed (customer-facing copy or code strings, needs
+John):** `static/pricing.html` terms paragraph ("Upgrades are prorated, so
+you only ever pay the difference") and its "Upgrade — pay the difference"
+button; the `static/account.html` upgrade-success banner ("only charged the
+prorated difference"); the 409 text in `create_checkout_session` ("so
+you're only charged the difference"). Under the Checkout flow the full new
+price is due at checkout, and the old plan's unused time becomes credit
+against later invoices. The `pricing.html` JS comments at the overlap
+branch and in `buy()` also still say "prorated"/"in-place".
+
+Tests: 87 passed (python3.13) after the follow-up.
+
 ## 2026-09-02 — SSA UX program bookmark: waves 1+3 + deploys (wave 2 logged below)
 
 The portfolio-wide UX audit (225 verified findings; report + E1-E45 menu on the

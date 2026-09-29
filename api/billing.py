@@ -32,10 +32,15 @@ Configuration (all env):
   PUBLIC_BASE_URL          — absolute origin for success/cancel URLs
                              (default https://sportsbookscienceanalytics.com)
 
-The webhook is the ONLY writer of entitlements docs. On every subscription
-event it re-lists the customer's subscriptions from Stripe and rewrites the
-doc from scratch — idempotent, order-insensitive, and self-healing if an
-event is missed (any later event repairs the doc).
+entitlements/{uid} has two writers, in disjoint uid namespaces. This webhook
+writes the customers' docs. On every subscription event it re-lists the
+customer's subscriptions from Stripe and rewrites the doc from scratch — a
+FULL OVERWRITE that is idempotent, order-insensitive, and self-healing if an
+event is missed (any later event repairs the doc). The other writer is the
+inplayLABS partner bridge (api/partner.py, ADR-0002, armed 2026-08-26). It
+writes only synthetic ipl_*/ipltest_* uids and merges per sport, and
+partner.grant() refuses any other uid. That guard keeps partner writes off
+customer docs, but nothing on the checkout path refuses an ipl_* session.
 """
 
 from __future__ import annotations

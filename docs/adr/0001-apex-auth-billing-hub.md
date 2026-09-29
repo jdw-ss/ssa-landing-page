@@ -1,6 +1,8 @@
 # 0001 — The apex becomes the SSA customer auth + billing hub
 
-**Status**: Accepted
+**Status**: Accepted; **amended 2026-09-29** (four statements overtaken by
+later rulings: the discount figures, the sole-writer rule, monthly-only, and
+public ATS proof; see the Amendment at the end). The architecture stands.
 **Date**: 2026-07-30
 **Project**: ssa-landing-page (portfolio-wide impact — every league service)
 
@@ -20,6 +22,11 @@ free content; per-sport monthly packages unlock a league's full public
 product; an NCAAF+NFL bundle at 20% off; an All-Access package at 50% off
 everything; `internal.<league>.SSA` keeps operator-only tools; public league
 pages become module views with free + locked tabs.
+
+> **[Amended 2026-09-29]** 20% and 50% were the 2026-07-30 asks. The price
+> ladder John decided on 2026-08-08 is **25% off for both** the bundle and
+> All-Access (`api/entitlements.py` SKU comment + `LAUNCH_PRICE_CENTS`). See
+> the Amendment.
 
 What already existed:
 
@@ -68,6 +75,11 @@ What already existed:
      cancellations wouldn't deactivate until re-mint. Firestore reads cut both
      ways immediately; league services will cache lookups in-process (~60s).
 
+   > **[Amended 2026-09-29]** The webhook is no longer the ONLY writer. Since
+   > 2026-08-26 the inplayLABS partner bridge (`api/partner.py`, ADR-0002)
+   > also writes `entitlements/{uid}`, but only for synthetic
+   > `ipl_*`/`ipltest_*` uids. See the Amendment.
+
 4. **Stripe model — stacked à-la-carte subscriptions** (John's decisions):
    monthly recurring only; each purchase is its own subscription; access is
    the union of slugs across subscriptions in status `active` / `trialing` /
@@ -79,9 +91,19 @@ What already existed:
    codes now; true refer-a-friend is a post-launch fast-follow). Checkout
    refuses SKUs whose slugs the customer already fully holds (409).
 
+   > **[Amended 2026-09-29]** Not monthly-only: since 2026-08-08 every SKU
+   > also sells a 6-month prepaid term (`TERMS` in `api/billing.py`; Stripe
+   > `interval_count=6`). The discounts are 25% for both `bundle_football`
+   > and `all_access`, not 20% / 50%. See the Amendment.
+
 5. **Free tier is anonymous.** Power rankings are free on every league site
    with no account; the existing public ATS aggregates stay as proof.
    Accounts exist for purchasing and managing packages only.
+
+   > **[Amended 2026-09-29]** The ATS clause is reversed. John made ATS
+   > internal-only on 2026-07-31, the day after this ADR, so there is no
+   > public ATS tab, route or aggregate on any league. Power rankings stay
+   > free. See the Amendment.
 
 6. **The paid line** (per John): subscribers get power rankings, schedules
    with predicted lines/picks, forecast grids, and team detail sheets on the
@@ -106,6 +128,8 @@ Per league (CFL, NCAAF, NFL×2 modules, Golf to start):
 - Build the public module page: free tabs (rankings, ATS proof) + entitled
   tabs (schedule/picks, forecast, team sheets), teaser + `/pricing` CTA when
   locked. Wire `serve_spa` to it.
+
+  > **[Amended 2026-09-29]** There is no ATS proof tab. See decision 5's note.
 - Grant each league runtime SA `roles/datastore.user` on `ssa-auth-71d16`.
 - NFL/Soccer path-split hosts inherit by module: the `nfl` slug covers
   `/mockdrafts` + `/elomodel`; `soccer` covers `/epl` + future leagues.
@@ -141,3 +165,43 @@ apex `noindex` meta + `robots.txt`.
   customers hold many single sports.
 - **A separate `billing.SSA` service** — rejected: the apex already owns the
   brand moment, the account stub, and `/help`; one fewer host to bootstrap.
+
+## Amendment 2026-09-29: four statements overtaken by later rulings
+
+**The architecture stands unchanged.** One sign-in and billing origin on the
+apex, the open any-user session mint, Firestore entitlements instead of custom
+claims, stacked à-la-carte subscriptions and server-side enforcement all hold.
+Four facts inside it were overtaken by later rulings. The original text above
+stays as written because this is a record. Where it disagrees with the code,
+the code and this Amendment are right.
+
+1. **Both discounts are 25%, not 20% / 50%** (John's price ladder,
+   2026-08-08). `bundle_football` costs $149.99/mo against $199.98 for NCAAF
+   plus NFL, and `all_access` costs $299.99/mo against $399.96 for the four
+   sellable sports. Both are 25% off, rounded up to .99. Evidence: the SKU
+   catalog comment and the `LAUNCH_PRICE_CENTS` table with its comment in
+   `api/entitlements.py`; the /pricing save chips read "Save 25%".
+2. **The Stripe webhook is no longer the only entitlements writer.** ADR-0002's
+   inplayLABS bridge (built 2026-08-25, armed on both lanes 2026-08-26) writes
+   `entitlements/{uid}` through `partner.grant()`, only for synthetic
+   `ipl_*`/`ipltest_*` uids. `grant()` refuses any other uid at runtime.
+   Partner docs carry extra fields (`grants`, `source: inplaylabs`,
+   `expires_at`) and merge per sport. The webhook's `_recompute` still
+   overwrites a customer doc in full from Stripe state. The `grant()` guard
+   works in one direction only. It keeps the partner writer off customer
+   docs, but nothing on the checkout path refuses an `ipl_*` session. So the
+   webhook leaves partner docs alone only while partner members don't buy
+   through /pricing.
+3. **Not monthly-only.** Since 2026-08-08 every SKU sells two terms: monthly,
+   and a 6-month prepaid cycle at 50% off six monthly cycles. The code has
+   `TERMS = ("monthly", "6mo")` in `api/billing.py`, and the bootstrap mints
+   the 6-month prices with `interval_count=6` (`scripts/_bootstrap_common.py`).
+   A term changes the price and how often the subscription renews. It never
+   changes the slugs.
+4. **No public ATS proof.** John pulled public ATS on 2026-07-31. A betting
+   model's ATS rate sits near 50-55%, and customers read that as "this model
+   loses money". The free ATS aggregate routes and tabs were removed from the
+   league public surfaces, and ATS is now an internal-only diagnostic.
+   Evidence: the ATS gotchas in `ncaaf-dashboard/CLAUDE.md` and
+   `cfl-elo-dashboard/CLAUDE.md`, and `cfl-elo-dashboard` ADR-0003 (Superseded
+   2026-07-31).

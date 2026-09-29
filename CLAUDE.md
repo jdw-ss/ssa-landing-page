@@ -14,10 +14,12 @@ internal hosts keep their own `ADMIN_EMAILS` mints); (4) Stripe billing:
 `/pricing` → Checkout, `/account` + Customer Portal, and the webhook that
 writes Firestore entitlements. Status: **LIVE** — deployed on Cloud Run,
 Stripe bound (secret + webhook + every price ID) and selling since 2026-08-08;
-`/pricing` renders real prices from `/api/billing/catalog`. (The
-"Pricing announced at launch" string still in `pricing.html` is the no-JS
-SEED markup, not the live state — verified in-browser 2026-08-26. The
-launch-gate gotcha below describes the pre-launch behaviour and is history.)
+`/pricing` renders real prices from `/api/billing/catalog`. The live payload
+reported `show_prices: true` and `billing_configured: true` on 2026-09-29.
+The "Pricing announced at launch" string in `pricing.html` is `planCard`'s
+fallback for `show_prices: false`, which production never hits. It is not
+no-JS markup: no-JS visitors get the `<noscript>` ladder with real prices.
+The launch-gate gotcha below covers this.
 
 **Since 2026-08-26 this service is also the DEFAULT BACKEND of the apex front
 door** — one global ALB (`34.160.208.32`) fronting the whole family. The hub's
@@ -40,7 +42,11 @@ applies to the league apps. Architecture of record:
 - **Framework**: FastAPI + uvicorn; vanilla-JS static pages (no build step)
   served from `static/`
 - **Data layer**: Firestore in the shared `ssa-auth-71d16` project —
-  `customers/{uid}` + `entitlements/{uid}` (webhook-only writes)
+  `customers/{uid}` (written at first checkout; the session mint stamps the
+  accepted ToS version) + `entitlements/{uid}`, which has TWO writers: the
+  Stripe webhook (full-overwrite recompute for every Google-sign-in
+  customer) and the ADR-0002 inplayLABS bridge (`api/partner.py`, only
+  synthetic `ipl_*`/`ipltest_*` uids). See the partner-writer gotcha.
 - **Billing**: Stripe Checkout + Customer Portal + webhook (`api/billing.py`);
   SKU catalog + slugs + the decided launch price ladder
   (`LAUNCH_PRICE_CENTS`, John 2026-08-08) in `api/entitlements.py`. Two
@@ -218,14 +224,17 @@ None.
   `dashLinksFor` helper (E5) — NFL both modules, bundle both leagues,
   All-Access the homepage.
 
-- **Launch gate: /pricing shows NO dollar amounts and no purchase path until
-  Stripe is configured on the service.** Prices are DECIDED (2026-08-08,
-  `LAUNCH_PRICE_CENTS`): sports $99.99/mo, bundle $149.99, All-Access $299.99;
-  6-month terms $299.99/$449.99/$899.99 — but the deployed site still renders
-  "Pricing announced at launch" until the live bootstrap + secret binding run
-  (`./deploy.sh bootstrap` step 5). `SHOW_PREVIEW_PRICES=1` overrides for
-  LOCAL exploration only (it's in the launch config) — never set it on Cloud
-  Run.
+- **Launch gate (`billing.show_prices()`): /pricing shows NO dollar amounts
+  and no purchase path while `STRIPE_SECRET_KEY` is unset on the service.**
+  In production the gate has been open since Stripe was bound (2026-08-08),
+  so the deployed site renders the decided ladder (`LAUNCH_PRICE_CENTS`):
+  sports $99.99/mo, bundle $149.99, All-Access $299.99; 6-month terms
+  $299.99/$449.99/$899.99. The live catalog reported `show_prices: true` on
+  2026-09-29. "Pricing announced at launch" (plus a disabled "Launching soon"
+  button) is `planCard`'s fallback in `static/pricing.html` when the catalog
+  says `show_prices: false`. You only see it locally when neither Stripe nor
+  the override is set. `SHOW_PREVIEW_PRICES=1` overrides for LOCAL
+  exploration only (it's in the launch config); never set it on Cloud Run.
 - **Local `.env` points at a disposable Stripe CLI sandbox** (created
   2026-08-08, expires 2026-08-15 unless claimed) — the previous test key had
   expired. Re-run `stripe sandbox create` + `python3 -m
@@ -257,7 +266,11 @@ None.
   webhook's full-overwrite recompute and the partner writer can never touch
   the same doc. `partner.grant()` hard-refuses any other uid. Never widen
   that carve-out; a partner slug on a real customer's doc would be silently
-  clobbered by the next Stripe event.
+  clobbered by the next Stripe event. **Caveat (verified 2026-09-29):** the
+  guard only works in one direction. Nothing on `/api/billing/checkout`
+  refuses an `ipl_*` session, and /pricing shows a signed-in partner member
+  Subscribe buttons. So "can never enter Stripe checkout" is an expectation
+  that no code enforces.
 - Partner entitlements are TIME-BOXED (`expires_at`, 7d): league gates don't
   check expiry, so the daily sweep (`POST /partner/inplaylabs/sweep`, Cloud
   Scheduler + `IPL_SWEEP_TOKEN` header) is what actually revokes them. If

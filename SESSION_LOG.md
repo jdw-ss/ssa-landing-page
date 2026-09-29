@@ -6,6 +6,50 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-29 — Stale-doc corrections (doc + docstring only, no behaviour change)
+
+A 2026-09-29 verifier pass flagged docs that disagreed with the code. Each
+item was checked against the code before it was changed. The AST diff of the
+.py files shows only module-docstring changes.
+
+- **ADR-0001**: the status line is now "amended 2026-09-29". Inline
+  `[Amended 2026-09-29]` notes and an Amendment section record four
+  overtaken statements; the original decision text is untouched.
+  (1) The bundle and All-Access discounts are 25% each, not 20% / 50%
+  (`api/entitlements.py` SKU comment + `LAUNCH_PRICE_CENTS`: $149.99 vs
+  $199.98, $299.99 vs $399.96). (2) The webhook is no longer the only
+  entitlements writer: ADR-0002's `api/partner.py` also writes, for
+  `ipl_*`/`ipltest_*` only. (3) It is not monthly-only: `TERMS` in
+  `api/billing.py`, plus `interval_count=6` in `scripts/_bootstrap_common.py`.
+  (4) There is no public ATS proof, since ATS went internal-only on
+  2026-07-31 (ncaaf/cfl CLAUDE.md ATS gotchas); this covers the decision-5
+  clause and the rollout "ATS proof" tab.
+- **ADR-0002**: the status line is annotated ARMED on both lanes 2026-08-26
+  (rev 00028), no longer "dormant".
+- **CLAUDE.md**: the data-layer line now names both entitlements writers
+  (it said "webhook-only writes") and the actual writers of `customers/{uid}`.
+  The snapshot and the launch-gate gotcha no longer claim the deployed site
+  renders "Pricing announced at launch". That string is `planCard`'s
+  `show_prices: false` fallback, and the live catalog reported
+  `show_prices: true` today. The partner-writer gotcha gained a caveat, below.
+- **Docstrings**: the `api/billing.py` module docstring and the
+  `api/entitlements.py` Firestore block name the partner writer, while
+  keeping the webhook's full-overwrite recompute and the disjoint uid
+  namespaces.
+- **Workspace `docs/ADR_INDEX.md`**: the ADR-0001 row is marked amended, and
+  the rows missing for ADR-0002 and ADR-0003 were added.
+
+**Found while verifying, NOT fixed (code change, needs John):** the
+namespace isolation is enforced on one side only. `partner.grant()` refuses
+non-partner uids, but `/api/billing/checkout` accepts an `ipl_*` session, and
+/pricing renders Subscribe for a signed-in partner member. If one buys, the
+webhook's full-overwrite `_recompute` replaces their partner doc (dropping
+`grants`/`source`/`expires_at`), and the next launch's `grant()` `set()`
+drops the Stripe slugs. The docs now state the claim as an expectation, not
+an invariant.
+
+Tests: 87 passed (python3.13), unchanged from the pre-edit baseline.
+
 ## 2026-09-02 — SSA UX program bookmark: waves 1+3 + deploys (wave 2 logged below)
 
 The portfolio-wide UX audit (225 verified findings; report + E1-E45 menu on the

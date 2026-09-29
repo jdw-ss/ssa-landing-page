@@ -1,6 +1,12 @@
 # ADR-0002: inplayLABS partner-launch bridge
 
 - **Status**: Accepted (built 2026-08-25; dormant until partner config lands)
+  **[Amended 2026-09-29]** No longer dormant. The bridge was **ARMED on both
+  lanes on 2026-08-26** (Cloud Run revision 00028): the prod and test
+  issuer/JWKS pairs, `IPL_TOOL_MAP` and `IPL_SWEEP_TOKEN` are set, and the
+  daily `ipl-entitlement-sweep` Cloud Scheduler job runs. See SESSION_LOG
+  2026-08-26 "inplayLABS bridge ARMED"; the exact strings are in
+  `docs/INPLAYLABS_ONBOARDING.md`.
 - **Project**: `ssa-landing-page` — the bridge lives ONLY on the apex hub
 - **Driver**: jdw; decisions recorded 2026-08-25
 

@@ -14,9 +14,15 @@ Firestore (project `ssa-auth-71d16`, shared with Firebase Auth):
   customers/{uid}     → {email, stripe_customer_id, created_at}
                         written when a customer first reaches checkout.
   entitlements/{uid}  → {slugs: [...], packages: [...], updated_at}
-                        written ONLY by the Stripe webhook (api/billing.py),
-                        recomputed from the customer's full subscription list
-                        on every subscription event. Never edited by hand.
+                        Two writers, in disjoint uid namespaces. The Stripe
+                        webhook (api/billing.py) writes every customer's
+                        doc: a FULL OVERWRITE recomputed from the customer's
+                        full subscription list on every subscription event
+                        (write_entitlements below). The inplayLABS partner
+                        bridge (api/partner.py, ADR-0002) writes only
+                        synthetic ipl_*/ipltest_* uids, adding grants /
+                        source / expires_at and merging per sport; its
+                        grant() refuses any other uid. Never edited by hand.
 
 Access = union of slugs across subscriptions in an ACTIVE-ish status
 ("active", "trialing", "past_due" — past_due keeps access during dunning).

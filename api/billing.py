@@ -269,7 +269,9 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly",
         raise HTTPException(
             409,
             "That package replaces one you already have — use the upgrade flow "
-            "so you're only charged the difference (POST /api/billing/change)",
+            "instead: you pay the new package price today, and unused time on "
+            "your current plan is credited toward your next renewal "
+            "(POST /api/billing/change)",
         )
 
     # Refuse pointless double-buys: everything this SKU grants is already held

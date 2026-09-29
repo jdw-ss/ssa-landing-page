@@ -66,7 +66,15 @@ applies to the league apps. Architecture of record:
   completes: on `checkout.session.completed` the webhook cancels the replaced
   subscriptions with `prorate=True`, and their unused time becomes
   customer-balance credit against future invoices. The old in-place
-  `Subscription.modify` price swap is gone (see `apply_plan_change`)
+  `Subscription.modify` price swap is gone (see `apply_plan_change`).
+  Customer copy says so since 2026-09-29 (John): "you pay the new package
+  price today, and unused time on your current plan is credited toward your
+  next renewal" in the /pricing foot-notes and the checkout 409, a plain
+  "Upgrade" button, the confirm box ("the full price"), and the /account
+  upgrade banner. Never "pay the difference" (the retired swap), and never a
+  refund: the credit is balance, not cash back. Pinned by
+  `tests/test_upgrade_copy.py`. `/terms` §7 "Upgrades" still says "the
+  upgrade is prorated"; that is legal text, left for John
 - **Auth**: firebase-admin session cookies (`api/auth.py`); shared
   `ssa-auth-71d16` Firebase project; `static/js/auth.js` façade (vendored,
   same as every league) + `static/js/account.js` (the Account widget all apex
@@ -322,8 +330,17 @@ None.
   deploy** (John, Stripe access needed): list open Checkout sessions and
   Stripe customers whose `client_reference_id` or `metadata.uid` starts
   with `ipl_` or `ipltest_`, expire the open sessions, and cancel or
-  reconcile any subscription found. **Finding the WARNINGs**: the app logs
-  plain text (`api/app.py` `basicConfig`), so on Cloud Run the level is
+  reconcile any subscription found. **Live check, 2026-09-29** (read-only,
+  Firestore `ssa-auth-71d16`): no partner uid has a Stripe customer
+  (`customers/{uid}.stripe_customer_id`, which `_get_or_create_customer`
+  writes before any Checkout session exists), so no partner account has
+  reached checkout; all 11 partner `entitlements` docs are in partner shape
+  (`source: inplaylabs` plus `grants`) and none was overwritten by the
+  webhook; the one partner `customers/{uid}` doc holds only the ToS stamp.
+  Stripe itself was not queried, so the at-deploy step still stands for
+  anything opened between that check and the deploy. **Finding the
+  WARNINGs**: the app logs plain text (`api/app.py` `basicConfig`), so on
+  Cloud Run the level is
   only a prefix inside `textPayload` and a `severity>=WARNING` filter is not
   reliable. Filter on the text in Logs Explorer:
   `resource.type="cloud_run_revision" resource.labels.service_name="ssa-landing" textPayload:"resolved to inplayLABS partner uid"`

@@ -205,7 +205,14 @@ def test_checkout_refuses_a_partial_overlap_and_points_at_the_upgrade(monkeypatc
     with pytest.raises(HTTPException) as exc:
         billing.create_checkout_session({"uid": "uid1", "email": "a@b.c"}, "bundle_football")
     assert exc.value.status_code == 409
-    assert "upgrade" in str(exc.value.detail).lower()
+    detail = str(exc.value.detail)
+    assert "upgrade" in detail.lower()
+    # John, 2026-09-29: the upgrade is a new Checkout at the full price, and
+    # the replaced plan's unused time is credit, not a charge for the
+    # difference. /pricing shows this detail verbatim if checkout 409s.
+    assert ("you pay the new package price today, and unused time on your "
+            "current plan is credited toward your next renewal") in detail
+    assert "difference" not in detail and "prorat" not in detail.lower()
 
 
 def test_checkout_success_url_names_the_sku_and_allowlisted_origin(monkeypatch):

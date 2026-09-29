@@ -436,8 +436,9 @@
         price you will be charged, including on renewal, is shown at checkout
         before you subscribe. Cancel anytime from
         <a href="/account">your account</a> — cancellation stops future renewals
-        and your access continues through the end of the paid period. Upgrades
-        are prorated, so you only ever pay the difference. No phone calls, no
+        and your access continues through the end of the paid period. When you
+        upgrade, you pay the new package price today, and unused time on your
+        current plan is credited toward your next renewal. No phone calls, no
         retention scripts. Payments are processed by Stripe as merchant of
         record, and your purchase may additionally be subject to Stripe/Link
         terms of sale presented at checkout. All payments are non-refundable
@@ -552,10 +553,11 @@
             } else if (!data.signed_in) {
                 action = '<a class="btn" href="/signin?next=%2Fpricing">Sign in to subscribe</a>';
             } else if (overlap) {
-                // Partial overlap = prorated upgrade (e.g. holds NCAAF, card is
-                // the bundle). The preview call quotes the real amount first.
+                // Partial overlap = upgrade (e.g. holds NCAAF, card is the
+                // bundle): a new Checkout at the full package price. The
+                // preview call quotes the amount first.
                 action = '<button class="btn btn-primary" data-sku="' + item.sku +
-                    '">Upgrade — pay the difference</button>';
+                    '">Upgrade</button>';
             } else {
                 const cls = item.kind === "sport" ? "btn" : "btn btn-primary";
                 action = '<button class="' + cls + '" data-sku="' + item.sku + '">Subscribe</button>';
@@ -604,10 +606,11 @@
             box.className = "upg";
             box.innerHTML =
                 "Replaces " + plan.replaces.join(", ") + ". " +
-                "You'll confirm " + '<span class="amt">' + fmt(plan.due_now_cents) +
-                "</span>" + per + " at checkout — nothing changes until you do. " +
+                "You'll pay the full price, " + '<span class="amt">' +
+                fmt(plan.due_now_cents) + "</span>" + per +
+                ", at checkout — nothing changes until you do. " +
                 "Unused time on " + plan.replaces.join(", ") +
-                " is credited to your account and applies to future invoices." +
+                " is credited toward your next renewal." +
                 '<div class="upg-actions">' +
                 '<button class="btn btn-primary" data-confirm="' + plan.sku + '">Continue to checkout</button>' +
                 '<button class="btn" data-dismiss>Keep current</button>' +
@@ -645,7 +648,7 @@
             btn.textContent = "One moment…";
             try {
                 // One preview decides the path: a fresh Checkout, or an
-                // in-place prorated upgrade with an explicit confirm step.
+                // upgrade Checkout behind an explicit confirm step.
                 const pr = await fetch(
                     "/api/billing/change-preview?sku=" + encodeURIComponent(sku) +
                     "&term=" + encodeURIComponent(TERM),

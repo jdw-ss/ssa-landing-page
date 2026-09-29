@@ -76,6 +76,17 @@ touching six league repos or the Stripe machinery.
    > WARNING naming the uid, for manual reconciliation. Pinned by
    > `tests/test_partner_billing_guard.py`.
 
+   > **[Amended 2026-09-29, live check]** A read-only check of Firestore
+   > `ssa-auth-71d16` found no partner purchase made before the guard. No
+   > partner uid has a Stripe customer mapping
+   > (`customers/{uid}.stripe_customer_id`, written before any Checkout
+   > session is created), so no partner account has reached checkout. The 11
+   > partner `entitlements` docs are all in partner shape (`source:
+   > inplaylabs` plus `grants`), none overwritten by the webhook, and the one
+   > partner `customers/{uid}` doc holds only the ToS stamp. Stripe itself
+   > was not queried; the at-deploy sweep in `CLAUDE.md` (the partner-writer
+   > gotcha) still covers anything opened before the deploy.
+
 3. **Opaque-only** (John): no email requested from the partner. The signed
    `sub` is the account key; the raw value never appears in uids or logs
    (hashed). Known cosmetic cost: the shared account widget keys on email,

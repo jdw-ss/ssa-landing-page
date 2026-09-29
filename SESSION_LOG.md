@@ -6,6 +6,83 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-29 — Upgrade copy matches the Checkout flow; partner live check recorded (not deployed)
+
+John decided to reword the upgrade copy to match what the code has done
+since 2026-08-26. An upgrade opens a new Checkout at the full new package
+price (`apply_plan_change`; `plan_change_preview` quotes that plain price as
+`due_now_cents`). After `checkout.session.completed` the webhook cancels the
+replaced subscription(s) with `prorate=True`, which credits the unused time
+to the customer balance for the next invoice. Approved direction: "you pay
+the new package price today; unused time on your current plan is credited
+toward your next renewal", and a plain "Upgrade" button. This closes the
+"Still stale, NOT changed" item in the stale-doc entry below.
+
+- **Strings changed** (old → new):
+  - `/pricing` foot-notes: "Upgrades are prorated, so you only ever pay the
+    difference." → "When you upgrade, you pay the new package price today,
+    and unused time on your current plan is credited toward your next
+    renewal."
+  - `/pricing` overlap button: "Upgrade — pay the difference" → "Upgrade".
+  - `/pricing` confirm box: "You'll confirm $X/month at checkout … Unused
+    time on Y is credited to your account and applies to future invoices."
+    → "You'll pay the full price, $X/month, at checkout … Unused time on Y
+    is credited toward your next renewal." It says "the full price", not
+    "the new package price", because the same box serves the same-package
+    monthly → 6-month switch.
+  - `/account?upgrade=success` banner: "you were only charged the prorated
+    difference" → "unused time on your previous plan is credited toward
+    your next renewal".
+  - `create_checkout_session` 409 (shown verbatim by /pricing if checkout
+    409s): "so you're only charged the difference" → "instead: you pay the
+    new package price today, and unused time on your current plan is
+    credited toward your next renewal".
+  - Two `pricing.html` JS comments (the overlap branch and `buy()`) no
+    longer say "prorated"/"in-place".
+  No copy promises a refund: the credit is balance for the next renewal,
+  and the foot-notes still say payments are non-refundable except where
+  law requires.
+- **ToS not edited (open for John):** `/terms` §7 "Upgrades" says "the
+  upgrade is prorated: you receive credit for the unused portion of your
+  current subscription against the new one." It doesn't contradict the new
+  copy outright, since credit for unused time is what happens. But it
+  doesn't say the full new price is due at checkout. "Prorated" is the word
+  the old "pay the difference" copy leaned on. And the credit sits on the
+  customer balance for whichever invoice comes next, which is "against the
+  new one" only when no other subscription renews first. The §7 automatic
+  renewal price notice doesn't mention upgrades. If John changes §7
+  materially, bump `TOS_VERSION`.
+- **Tests** (4 new in `tests/test_upgrade_copy.py`, 2 existing tests
+  re-pinned; suite 144 passed, was 140): the foot-notes sentence; no
+  "difference"/"prorat" anywhere in pricing.html or account.html, comments
+  included; the confirm box, reached by clicking the Upgrade button through
+  the page's own `buy()` (`tests/js/render_pricing.js` gains an optional
+  click-sku argument and a `_preview` reply); the /account banner
+  (`tests/js/account_portal.js` gains an optional search-string mode); the
+  button label in `test_pricing_held_package_states_for_a_normal_customer`;
+  and the 409 detail in
+  `test_checkout_refuses_a_partial_overlap_and_points_at_the_upgrade`. With
+  HEAD's `pricing.html`, `account.html` and `billing.py` in a scratch copy,
+  all 6 of those fail. The confirm-box test stops at the button label there,
+  and a direct harness run shows HEAD's box reads "You'll confirm …
+  applies to future invoices".
+- **No `?v=` bump**: every change is inline in `pricing.html` (served
+  `no-cache`) or `account.html` (`no-store`) via `_page` in `api/app.py`;
+  no `/static` JS or CSS file changed.
+- **Partner live check** (orchestrator, 2026-09-29, read-only, Firestore
+  `ssa-auth-71d16`): no inplayLABS partner uid has a Stripe customer
+  (`customers/{uid}.stripe_customer_id` is written before any Checkout
+  session is created), so no partner account has reached checkout. All 11
+  partner `entitlements` docs are in partner shape (`source: inplaylabs`
+  plus `grants`), none overwritten by Stripe, and the one partner
+  `customers/{uid}` doc holds only the ToS stamp. This closes "No live
+  check for an existing partner purchase" in the partner-guard entry below.
+  Recorded in CLAUDE.md (the partner-writer gotcha) and a third ADR-0002
+  decision 2 note. Stripe was not queried, so the at-deploy sweep stays.
+
+**Not done here:** no push, no deploy. The partner billing guard and this
+copy both go live with the next deploy.
+
 ## 2026-09-29 — Partner billing guard: review fixes (still not deployed)
 
 A review of `21c791d` (the entry below) raised 11 findings. Each was checked

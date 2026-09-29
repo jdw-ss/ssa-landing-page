@@ -256,8 +256,9 @@
             // loop, so no "refresh this page" instruction here.
             showBanner("Payment received — activating your access…", "success");
         } else if (params.get("upgrade") === "success") {
-            showBanner("Upgrade applied — you were only charged the prorated difference. " +
-                       "Your new package is listed below.", "success");
+            showBanner("Upgrade applied — unused time on your previous plan is " +
+                       "credited toward your next renewal. Your new package is " +
+                       "listed below.", "success");
         }
 
         // E4: where each package's product lives. The success URL's &sport=

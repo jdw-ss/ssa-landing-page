@@ -1,7 +1,7 @@
 // Click /account's "Manage billing" button in node and report the banner, for
-// tests/test_partner_billing_guard.py.
+// tests/test_partner_billing_guard.py and tests/test_upgrade_copy.py.
 //
-// Usage: node account_portal.js <path/to/account.html>
+// Usage: node account_portal.js <path/to/account.html> [search]
 //        (stdin: {"status": <int>, "body": <json or null>} — the portal reply)
 //
 // Runs the page's own inline <script> unmodified in a vm context (fake DOM in
@@ -9,7 +9,9 @@
 // onload), so init() parks and the page's listeners are all that run. The
 // harness then fires #portal-btn's own click handler against a fetch that
 // answers POST /api/billing/portal with the stdin reply, and prints the
-// banner's text and class plus any navigation.
+// banner's text and class plus any navigation. With a search string (e.g.
+// "?upgrade=success"), the page loads with it as location.search and the
+// banner it shows on load is reported, with no click.
 "use strict";
 
 const fs = require("fs");
@@ -21,8 +23,9 @@ const html = fs.readFileSync(process.argv[2], "utf8");
 const reply = JSON.parse(fs.readFileSync(0, "utf8"));
 const declared = declaredElements(html);
 
+const search = process.argv[3] || "";
 const location = {
-    search: "", href: "", hostname: "127.0.0.1",
+    search, href: "", hostname: "127.0.0.1",
     replace(u) { this.replaced = u; },
 };
 const document = {
@@ -61,7 +64,7 @@ vm.runInContext(pageScript(html), ctx);
 
 setTimeout(async () => {
     const btn = declared.get("portal-btn");
-    for (const fn of btn.listeners.click || []) await fn();
+    if (!search) for (const fn of btn.listeners.click || []) await fn();
     const banner = declared.get("banner");
     process.stdout.write(JSON.stringify({
         banner: banner.textContent,

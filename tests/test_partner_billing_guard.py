@@ -621,13 +621,16 @@ def test_pricing_is_unchanged_for_normal_and_anonymous_visitors():
 @needs_node
 def test_pricing_held_package_states_for_a_normal_customer():
     """The held-package branches a partner flag must never disturb: Active,
-    Included in Bundle/All-Access, pay-the-difference upgrades and the
-    same-SKU 6-month switch."""
+    Included in Bundle/All-Access, the Upgrade button and the same-SKU
+    6-month switch."""
     nfl_monthly = dict(held_slugs=["nfl"],
                        held_packages=[{"sku": "sport_nfl", "term": "monthly"}])
     cards = _by_label(_render_pricing(_payload(**nfl_monthly))["cards"])
     assert '<a class="btn btn-active" href="/account">✓ Active</a>' in cards["NFL Package"]
-    assert "Upgrade — pay the difference" in cards["Football Bundle"]
+    # John, 2026-09-29: plain "Upgrade". An upgrade is a new Checkout at the
+    # full package price, not a charge for the difference.
+    assert '">Upgrade</button>' in cards["Football Bundle"]
+    assert not any("difference" in c for c in cards.values())
     # All-Access's slug is "all", so no card-level overlap: its button reads
     # Subscribe, and the change-preview on click turns it into the upgrade.
     for label in ("CFL Package", "NCAAF Package", "Golf Package", "All-Access"):

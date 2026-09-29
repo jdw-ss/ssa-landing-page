@@ -398,21 +398,21 @@ def test_apply_plan_change_creates_checkout_and_touches_nothing(monkeypatch):
     assert kw["subscription_data"]["metadata"]["sku"] == "all_access"
 
 
-def test_webhook_retires_replaced_subs_after_paid_upgrade(monkeypatch):
-    """checkout.session.completed with upgrade_replaces metadata must cancel
-    each listed subscription prorate=True BEFORE recomputing entitlements, and
-    an already-cancelled subscription (webhook redelivery) is success, not an
-    abort — the remaining ids must still be processed."""
-    cancels = []
-    recomputes = []
+class _StripeError(Exception):
+    """Stand-in for a stripe.StripeError: carries the API error `code`."""
 
-    def cancel(sid, **kw):
-        if sid == "sub_gone":
-            raise RuntimeError("No such subscription")
-        cancels.append((sid, kw.get("prorate")))
+    def __init__(self, msg, code=None):
+        super().__init__(msg)
+        self.code = code
 
+
+def _upgrade_webhook(monkeypatch, cancel, retrieve, replaces="sub_gone,sub_old"):
+    """Wire a checkout.session.completed upgrade event through handle_webhook
+    with the given Subscription.cancel/retrieve fakes. Returns the recorded
+    (set_customer, recompute) calls."""
+    calls = {"set_customer": [], "recompute": []}
     fake = types.SimpleNamespace(
-        Subscription=types.SimpleNamespace(cancel=cancel),
+        Subscription=types.SimpleNamespace(cancel=cancel, retrieve=retrieve),
         Webhook=types.SimpleNamespace(construct_event=lambda p, sig, sec: {
             "type": "checkout.session.completed",
             "data": {"object": {
@@ -420,22 +420,86 @@ def test_webhook_retires_replaced_subs_after_paid_upgrade(monkeypatch):
                 "client_reference_id": "uid_1",
                 "customer": "cus_1",
                 "customer_details": {"email": "A@B.C"},
-                "metadata": {"upgrade_replaces": "sub_gone,sub_old"},
+                "metadata": {"upgrade_replaces": replaces},
             }},
         }),
     )
     monkeypatch.setattr(billing, "_stripe", lambda: fake)
-    monkeypatch.setattr(ent, "set_customer", lambda *a, **k: None)
+    monkeypatch.setattr(ent, "set_customer",
+                        lambda *a, **k: calls["set_customer"].append(a))
     monkeypatch.setattr(billing, "_recompute",
-                        lambda uid, cid: recomputes.append((uid, cid)))
+                        lambda uid, cid: calls["recompute"].append((uid, cid)))
     monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_test")
+    return calls
+
+
+def test_webhook_retires_replaced_subs_after_paid_upgrade(monkeypatch):
+    """checkout.session.completed with upgrade_replaces metadata must cancel
+    each listed subscription prorate=True BEFORE recomputing entitlements, and
+    an already-cancelled subscription (webhook redelivery) is success, not an
+    abort — the remaining ids must still be processed."""
+    cancels = []
+
+    def cancel(sid, **kw):
+        if sid == "sub_gone":
+            raise _StripeError("This subscription is already canceled")
+        cancels.append((sid, kw.get("prorate")))
+
+    calls = _upgrade_webhook(monkeypatch, cancel,
+                             retrieve=lambda sid: {"id": sid, "status": "canceled"})
 
     out = billing.handle_webhook(b"{}", "sig")
 
     assert out["received"] is True
     assert cancels == [("sub_old", True)], "surviving sub cancelled prorated"
-    assert recomputes == [("uid_1", "cus_1")]
+    assert calls["recompute"] == [("uid_1", "cus_1")]
 
+
+def test_webhook_treats_a_missing_replaced_sub_as_retired(monkeypatch):
+    def missing(sid, **kw):
+        raise _StripeError(f"No such subscription: '{sid}'", code="resource_missing")
+
+    calls = _upgrade_webhook(monkeypatch, cancel=missing, retrieve=missing,
+                             replaces="sub_gone")
+
+    assert billing.handle_webhook(b"{}", "sig")["received"] is True
+    assert calls["recompute"] == [("uid_1", "cus_1")]
+
+
+@pytest.mark.parametrize("retrieve", [
+    lambda sid: {"id": sid, "status": "active"},
+    lambda sid: (_ for _ in ()).throw(_StripeError("Request rate limit exceeded",
+                                                   code="rate_limit")),
+], ids=["still-active", "status-unreadable"])
+def test_webhook_fails_the_event_when_a_replaced_sub_may_still_bill(
+        monkeypatch, caplog, retrieve):
+    """A transient error on the cancel (connection, rate limit, API error)
+    used to be logged at INFO as "assuming already retired" and answered 200,
+    so Stripe never redelivered: the replaced plan kept billing next to the
+    new one and got no proration credit. Now the event 500s after the other
+    cancels and the entitlement write, so Stripe redelivers and the retry
+    (idempotent: an already-cancelled sub reads as retired) finishes it."""
+    cancels = []
+
+    def cancel(sid, **kw):
+        if sid == "sub_flaky":
+            raise _StripeError("Connection aborted")
+        cancels.append(sid)
+
+    calls = _upgrade_webhook(monkeypatch, cancel, retrieve,
+                             replaces="sub_flaky,sub_old")
+    with caplog.at_level("ERROR", logger=billing.logger.name):
+        with pytest.raises(HTTPException) as exc:
+            billing.handle_webhook(b"{}", "sig")
+
+    assert exc.value.status_code == 500
+    assert "sub_flaky" in str(exc.value.detail)
+    assert cancels == ["sub_old"], "the other replaced sub is still retired"
+    # The new plan's access is written before the retry is requested.
+    assert calls["recompute"] == [("uid_1", "cus_1")]
+    assert len(calls["set_customer"]) == 1
+    assert any(r.levelname == "ERROR" and "sub_flaky" in r.getMessage()
+               for r in caplog.records), [r.getMessage() for r in caplog.records]
 
 
 def test_recompute_stamps_the_term_on_each_package(monkeypatch):

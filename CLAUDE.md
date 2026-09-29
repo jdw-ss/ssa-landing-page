@@ -79,7 +79,14 @@ applies to the league apps. Architecture of record:
   claim about which renewal or invoice the credit reaches until the sandbox
   check says so. Pinned by `tests/test_upgrade_copy.py`. `/terms` §7
   "Upgrades" still says "the upgrade is prorated ... against the new one";
-  that is legal text, left for John
+  that is legal text, left for John. If a replaced subscription can't be
+  confirmed cancelled (a transient Stripe error on the cancel, and a re-read
+  that doesn't show it `canceled`/`incomplete_expired` or missing), the
+  webhook logs an ERROR ending "may still be billing" and answers 500 AFTER
+  the entitlement write, so Stripe redelivers the event and the retry
+  finishes the cancel (`_retire_superseded`). Until 2026-09-29 it logged
+  INFO "assuming already retired" and answered 200, leaving the old plan
+  billing beside the new one
 - **Auth**: firebase-admin session cookies (`api/auth.py`); shared
   `ssa-auth-71d16` Firebase project; `static/js/auth.js` façade (vendored,
   same as every league) + `static/js/account.js` (the Account widget all apex
@@ -368,9 +375,10 @@ None.
   writes before any Checkout session exists), so no partner account has
   reached checkout. An unmapped Stripe customer is still possible (a
   `set_customer` failure after `stripe.Customer.create`), but no session
-  could have been created for it; all 11 partner `entitlements` docs are in partner shape
-  (`source: inplaylabs` plus `grants`) and none was overwritten by the
-  webhook; the one partner `customers/{uid}` doc holds only the ToS stamp.
+  could have been created for it. All 11 partner `entitlements` docs are in
+  partner shape (`source: inplaylabs` plus `grants`) and none was
+  overwritten by the webhook; the one partner `customers/{uid}` doc holds
+  only the ToS stamp.
   Stripe itself was not queried, so the at-deploy step still stands for
   anything opened between that check and the deploy. **Finding the
   WARNINGs**: the app logs plain text (`api/app.py` `basicConfig`), so on

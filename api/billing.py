@@ -654,6 +654,46 @@ def _recompute(uid: str, stripe_customer_id: str) -> None:
     ent.write_entitlements(uid, slugs, packages)
 
 
+# Subscription states that never bill again; anything else may still charge.
+_TERMINAL_STATUSES = {"canceled", "incomplete_expired"}
+
+
+def _retire_superseded(session_id: str, sub_id: str) -> bool:
+    """Cancel one subscription an upgrade replaced, with proration. True when
+    it is retired: cancelled now, already in a terminal state (a webhook
+    redelivery meeting its own earlier cancel), or unknown to Stripe. False
+    when it may still be billing, e.g. a connection error or rate limit on
+    the cancel: the webhook then fails the event so Stripe redelivers it.
+    Until 2026-09-29 every exception here was read as "already retired" and
+    answered 200, which left the old plan billing beside the new one."""
+    stripe = _stripe()
+    try:
+        stripe.Subscription.cancel(sub_id, prorate=True)
+        logger.info("Upgrade %s: cancelled superseded %s", session_id, sub_id)
+        return True
+    except Exception as exc:  # noqa: BLE001 — classified by the read below
+        cancel_error = exc
+    try:
+        status = field(stripe.Subscription.retrieve(sub_id), "status")
+    except Exception as exc:  # noqa: BLE001
+        if getattr(exc, "code", None) == "resource_missing":
+            logger.info("Upgrade %s: superseded %s does not exist (%s)",
+                        session_id, sub_id, cancel_error)
+            return True
+        logger.error("Upgrade %s: cancelling superseded %s failed (%s) and its "
+                     "status could not be read (%s); it may still be billing",
+                     session_id, sub_id, cancel_error, exc)
+        return False
+    if status in _TERMINAL_STATUSES:
+        logger.info("Upgrade %s: superseded %s already %s", session_id, sub_id,
+                    status)
+        return True
+    logger.error("Upgrade %s: cancelling superseded %s failed (%s) and it is "
+                 "still %s; it may still be billing", session_id, sub_id,
+                 cancel_error, status)
+    return False
+
+
 def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
     """Verify + dispatch a Stripe webhook event. Always returns 200-shaped
     data for events we deliberately ignore, so Stripe doesn't retry them."""
@@ -684,17 +724,21 @@ def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
             # is success, not an error. Cancel BEFORE recompute so the
             # entitlement write reflects the post-upgrade state in one pass.
             replaces = field(field(obj, "metadata", {}) or {}, "upgrade_replaces", "") or ""
-            for sub_id in [x for x in replaces.split(",") if x]:
-                try:
-                    _stripe().Subscription.cancel(sub_id, prorate=True)
-                    logger.info("Upgrade %s: cancelled superseded %s",
-                                field(obj, "id"), sub_id)
-                except Exception as exc:  # noqa: BLE001 — already-cancelled is fine
-                    logger.info("Upgrade %s: %s not cancelled (%s) — assuming "
-                                "already retired", field(obj, "id"), sub_id, exc)
+            not_retired = [
+                sub_id for sub_id in [x for x in replaces.split(",") if x]
+                if not _retire_superseded(field(obj, "id"), sub_id)]
             email = field(field(obj, "customer_details", {}), "email", "") or ""
             ent.set_customer(uid, email.lower(), customer_id)
             _recompute(uid, customer_id)
+            if not_retired:
+                # After the entitlement write, so the new plan's access is
+                # live; the non-2xx makes Stripe redeliver this event, and the
+                # retry retires what is left (see _retire_superseded).
+                raise HTTPException(
+                    500,
+                    f"Upgrade {field(obj, 'id')}: superseded subscription(s) "
+                    f"not cancelled: {', '.join(not_retired)}",
+                )
         else:
             logger.error("checkout.session.completed missing uid/customer: %s",
                          field(obj, "id"))

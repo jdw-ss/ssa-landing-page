@@ -6,6 +6,90 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-29 — Upgrade copy review fixes: credit claim narrowed, webhook cancel retries (not deployed)
+
+A review of `c575003` (the entry below) raised 7 findings. Six were real and
+fixed in two commits: `44bc2eb` (copy, 409s, docs) and the webhook commit
+that carries this entry. One (ToS §7) is John's legal text and was left
+alone. Nothing is pushed or deployed, and no Stripe call was made.
+
+- **"Credited toward your next renewal" was not established, so the copy
+  now says less.** The webhook cancels replaced subscriptions with
+  `prorate=True` and no `invoice_now`. Stripe's API reference says that
+  "will generate a proration invoice item that credits remaining unused
+  time": a pending invoice item tied to the cancelled subscription, not
+  customer-balance credit. The docs conflict on whether any later invoice
+  applies it (the invoice-item reference: other subscriptions' scheduled
+  invoices ignore an item set to one subscription; the cancel guide: such
+  items "won't be processed unless you specifically generate an invoice
+  that includes them", but also that another active subscription might bill
+  them). Changed: foot-notes, confirm box and checkout 409 "credited toward
+  your next renewal" → "credited to your account"; the /account banner →
+  "will be credited to your account". That is John's direction (unused time
+  is credited) minus the unverified destination. A test now fails if either
+  page says "next renewal" or "future invoice(s)". CLAUDE.md has a new
+  gotcha with the sandbox check to run before deploying this copy, and John's
+  choice after it: restore "toward your next renewal" if the credit lands
+  there; otherwise cancel with `invoice_now=True` (a finalized negative
+  invoice moves the credit onto the customer balance, which Stripe applies
+  to the next finalized invoice; a billing change) or drop the credit
+  sentence. **Corrects the entry below**: its "credits the unused time to
+  the customer balance for the next invoice" and "the credit sits on the
+  customer balance for whichever invoice comes next" are wrong. The same
+  "customer-balance credit" wording is fixed in CLAUDE.md, the
+  `api/billing.py` and `api/app.py` docstrings, and the test docstrings.
+- **Webhook swallowed every cancel failure** (existing code). Any exception
+  from `Subscription.cancel` was logged at INFO as "assuming already
+  retired" and answered 200, so a transient Stripe error left the old plan
+  billing beside the new one and Stripe never retried. New
+  `_retire_superseded` re-reads the subscription after a failed cancel:
+  `canceled`/`incomplete_expired` or `resource_missing` is success (a
+  redelivery), anything else logs an ERROR ending "may still be billing".
+  The webhook then answers 500, after the entitlement write, so the new
+  plan's access is live and Stripe redelivers the event.
+- **/account banner raced the webhook**: "will be credited" (future tense).
+  "Your new package is listed below" has the same race and predates this;
+  left as is (a poll would need `&sku=` on the upgrade success URL).
+- **Confirm box promised a firm amount**: now "the full price, $X/month
+  plus any applicable tax". Stripe is merchant of record under Managed
+  Payments and adds sales tax where it applies; no `tax_behavior` is set
+  anywhere. An existing customer credit balance could also lower the
+  charge; that only favours the member, so it isn't worded.
+- **Same-SKU term-downgrade 409s were wrong** (holding 6-month X, buying
+  monthly X). Checkout said "choose the 6-month X instead", the plan they
+  already hold; the preview said it "renews monthly automatically only if
+  you cancel the 6-month term first", but cancelling ends the plan. Both
+  paths now go through `_raise_blocked`: "To move to monthly, cancel it from
+  your account and subscribe monthly once the paid term ends." The /pricing
+  UI can't reach either message; a direct API call can.
+- **Partner live check overstated**: CLAUDE.md now says no partner uid has
+  a Stripe customer *mapping* (only Firestore was read; an unmapped Stripe
+  customer is possible if `set_customer` failed, but no session could
+  follow). ADR-0002's note says "as of 2026-09-29", not "before the guard"
+  (the guard isn't deployed).
+- **ToS §7 "Upgrades" (not edited, John)**: besides the gaps listed below,
+  it covers only "a broader package", not the monthly → 6-month switch the
+  same flow handles, and "against the new one" depends on the sandbox
+  result. Decide after the sandbox check; bump `TOS_VERSION` if it changes.
+- **Tests**: suite 149 passed (was 144). New: no landing claim on either
+  page; the same-SKU downgrade 409 on checkout, preview and change; a
+  missing replaced sub is retired; a replaced sub that is still active, or
+  whose status can't be read, fails the event with an ERROR after the
+  recompute. Re-pinned: foot-notes, confirm box (tax), banner (future
+  tense), the checkout 409, and the redelivery test (which now fakes
+  `retrieve`). Against `c575003`, the 6 copy/409 tests fail; against
+  `44bc2eb`, both webhook failure cases fail ("DID NOT RAISE"). The
+  missing-sub test passes on the old code and is a regression lock.
+- **No `?v=` bump**: every page change is inline in `pricing.html`
+  (`no-cache`) or `account.html` (`no-store`), per `_page` in `api/app.py`.
+- **Preview** (local, `ssa-landing`): the /account `?upgrade=success`
+  banner and the /pricing foot-notes read the new text; the confirm box,
+  rendered by calling `renderUpgradeConfirm`, fits at 1024px and 375px with
+  no horizontal scroll.
+
+**Not done here:** the sandbox check (no Stripe calls this session), John's
+calls on the credit mechanism and ToS §7, push, deploy.
+
 ## 2026-09-29 — Upgrade copy matches the Checkout flow; partner live check recorded (not deployed)
 
 John decided to reword the upgrade copy to match what the code has done

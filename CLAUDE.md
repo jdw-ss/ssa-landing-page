@@ -48,11 +48,14 @@ applies to the league apps. Architecture of record:
   `checkout.session.completed` or `customer.subscription.*` event, resolved
   from the session's `client_reference_id`, the subscription's `uid`
   metadata or a reverse lookup of `customers/{uid}` by Stripe customer id;
-  billing refuses partner sessions since 2026-09-29, so that uid is an
-  `ipl_*` one only for a purchase made before the guard, and the webhook
-  logs a WARNING naming it) and the ADR-0002 inplayLABS bridge
-  (`api/partner.py`, only synthetic `ipl_*`/`ipltest_*` uids). See the
-  partner-writer gotcha.
+  billing refuses partner sessions in code since 2026-09-29 (commit
+  `21c791d`, **NOT yet deployed: the live revision still accepts partner
+  checkout**), so once deployed that uid should be an `ipl_*` one only for a
+  purchase or a Checkout session opened before the deploy (Stripe keeps a
+  session completable up to 24h) or a bypass such as a Dashboard-created
+  subscription, and the webhook logs a WARNING naming it) and the ADR-0002
+  inplayLABS bridge (`api/partner.py`, only synthetic `ipl_*`/`ipltest_*`
+  uids). See the partner-writer gotcha.
 - **Billing**: Stripe Checkout + Customer Portal + webhook (`api/billing.py`);
   SKU catalog + slugs + the decided launch price ladder
   (`LAUNCH_PRICE_CENTS`, John 2026-08-08) in `api/entitlements.py`. Two
@@ -84,13 +87,20 @@ cd '/Users/johnwilson/Claude Projects/ssa-landing-page' && \
 ```
 
 **Partner view** (an inplayLABS member's /pricing): the `ssa-landing-partner`
-launch config (port **8087**) adds `DEV_UID=ipl_preview` and
-`DEV_ENTITLEMENTS=nfl`. `DEV_UID` swaps the dev stub's uid (dev mode only,
-`api/auth.py::_dev_user`), so the catalog reports `partner_member: true`,
-/pricing shows the inplayLABS note with the NFL card "Included" and every
-other card "Managed through inplayLABS", and `POST /api/billing/checkout`
-returns the 403. The header still shows the dev menu, not the partner chip:
-the dev-mode `auth.js` stub user has an email and no uid.
+launch config (port **8087**) adds `DEV_UID=ipl_preview`,
+`DEV_ENTITLEMENTS=nfl` and an `IPL_TOOL_MAP` with the three registered tools
+(nfl, ncaaf, cfl). `DEV_UID` swaps the dev stub's uid (dev mode only,
+`api/auth.py::_dev_user`), so the catalog reports `partner_member: true` and
+`partner_skus` (the sport SKUs the tool map sells). /pricing then shows the
+inplayLABS note, the NFL card "✓ Included through inplayLABS", NCAAF and CFL
+"Available through inplayLABS", Golf, the Football Bundle and All-Access "Not
+available with an inplayLABS sign-in", and no foot-notes (purchase copy plus
+an `/account` link). `POST /api/billing/checkout` returns the 403. The
+header still shows the dev menu, not the partner chip: the dev-mode
+`auth.js` stub user has an email and no uid. For the same reason /account
+renders in this preview (production redirects an email-less partner session
+to /signin before it does), and its Manage billing button shows the 403
+detail.
 
 ## Cloud infrastructure
 
@@ -220,12 +230,16 @@ None.
   block in `static/pricing.html` in the same commit or it quotes stale prices.
 - **`/api/billing/catalog` is a cross-surface contract — additive fields
   only.** League public lock cards fetch and render it (wave 1, 2026-09-02).
-  The latest addition is `partner_member` (2026-09-29, true for an
-  inplayLABS partner session; /pricing swaps its controls on it). It also
-  carries per-SKU `free_features` / `paid_features` (the /pricing
-  free-vs-paid checklist, wave 2); those lists MIRROR each league public
-  shell's tab ladder ("Free" vs "Subscribers" tags), so when a repo's tabs
-  change, update `SKUS` in `api/entitlements.py` in the same pass.
+  The latest additions are `partner_member` (2026-09-29, true for an
+  inplayLABS partner session; /pricing swaps its controls on it) and
+  `partner_skus` (same day: for a partner session only, the single-sport SKUs
+  whose slug the live `IPL_TOOL_MAP` grants, empty otherwise or when the map
+  is unset/malformed; the partner cards read "Available through inplayLABS"
+  only for those). It also carries per-SKU `free_features` /
+  `paid_features` (the /pricing free-vs-paid checklist, wave 2); those lists
+  MIRROR each league public shell's tab ladder ("Free" vs "Subscribers"
+  tags), so when a repo's tabs change, update `SKUS` in
+  `api/entitlements.py` in the same pass.
 - **/pricing emits Product/Offer JSON-LD at render, gated on `show_prices`.**
   Prices come from the same catalog payload the cards display, so structured
   data can never disagree with checkout; while the launch gate hides amounts
@@ -284,27 +298,49 @@ None.
   enforced league-side. Operator gating lives on `internal.<league>` hosts.
 - **Only the Stripe webhook writes `entitlements/{uid}` — with ONE carve-out
   (ADR-0002).** `api/partner.py` also writes, but exclusively to synthetic
-  `ipl_*`/`ipltest_*` uids that can never enter Stripe checkout, so the
-  webhook's full-overwrite recompute and the partner writer can never touch
-  the same doc. `partner.grant()` hard-refuses any other uid. Never widen
-  that carve-out; a partner slug on a real customer's doc would be silently
-  clobbered by the next Stripe event. **Enforced in both directions since
-  2026-09-29** (John: block partner members from Stripe). One predicate,
+  `ipl_*`/`ipltest_*` uids that billing refuses, so the webhook's
+  full-overwrite recompute and the partner writer should never touch the
+  same doc. `partner.grant()` hard-refuses any other uid. Never widen that
+  carve-out; a partner slug on a real customer's doc would be silently
+  clobbered by the next Stripe event. **Enforced in both directions in code
+  since 2026-09-29 (commit `21c791d` plus its review-fix follow-up), NOT yet
+  deployed: the live revision (last deploy 2026-09-02) still accepts partner
+  checkout.** The deploy that carries it drops this qualifier and cites the
+  revision. (John: block partner members from Stripe.) One predicate,
   `api/partner_uid.py::is_partner_uid`, holds the only prefix literals in
   `api/`. `partner.grant()` uses it, and so does `billing._refuse_partner`,
   which 403s a partner session (detail names inplayLABS) before any Stripe
   or Firestore call in `create_checkout_session`, `plan_change_preview`,
   `apply_plan_change`, `create_portal_session` and, as the backstop,
   `_get_or_create_customer`. The webhook is NOT gated: a Stripe event that
-  resolves to a partner uid (a pre-guard purchase) still recomputes, so the
-  doc keeps tracking Stripe, and logs a WARNING naming the uid for manual
-  reconciliation. /pricing hides the purchase controls for a partner
-  session (`partner_member` from the catalog); that is cosmetic, and the
-  403s are the control. Pinned by `tests/test_partner_billing_guard.py`,
-  including an AST scan that fails on a prefix literal anywhere in `api/`
-  outside `partner_uid.py`. `static/js/account.js` keeps its own
-  `/^ipl(test)?_/` for the header chip; it is vendored byte-identically to
-  every surface and `tests/test_partner_launch.py` pins it.
+  resolves to a partner uid still recomputes, so the doc keeps tracking
+  Stripe, and logs a WARNING naming the uid for manual reconciliation. Once
+  deployed, such an event should only come from a purchase made before the
+  deploy, a Checkout session opened before it and completed afterwards
+  (sessions carry no `expires_at`, so Stripe's 24h default applies), or a
+  bypass such as a subscription created in the Stripe Dashboard. **At
+  deploy** (John, Stripe access needed): list open Checkout sessions and
+  Stripe customers whose `client_reference_id` or `metadata.uid` starts
+  with `ipl_` or `ipltest_`, expire the open sessions, and cancel or
+  reconcile any subscription found. **Finding the WARNINGs**: the app logs
+  plain text (`api/app.py` `basicConfig`), so on Cloud Run the level is
+  only a prefix inside `textPayload` and a `severity>=WARNING` filter is not
+  reliable. Filter on the text in Logs Explorer:
+  `resource.type="cloud_run_revision" resource.labels.service_name="ssa-landing" textPayload:"resolved to inplayLABS partner uid"`
+  (the webhook's reconcile signal) or
+  `textPayload:"refused for inplayLABS partner uid"` (a refused billing
+  call). A log-based alert on the first is optional, set up at deploy.
+  `tests/test_partner_billing_guard.py` fails if either string stops
+  matching the emitted line. /pricing hides the purchase controls and the
+  foot-notes for a partner session (`partner_member` from the catalog); each
+  card says whether inplayLABS sells it (`partner_skus`), because it sells
+  one tool per sport and not Golf, the bundle or All-Access. That is
+  cosmetic, and the 403s are the control. Pinned by
+  `tests/test_partner_billing_guard.py`, including an AST scan that fails on
+  a prefix literal anywhere in `api/` outside `partner_uid.py`.
+  `static/js/account.js` keeps its own `/^ipl(test)?_/` for the header chip;
+  it is vendored byte-identically to every surface and
+  `tests/test_partner_launch.py` pins it.
 - Partner entitlements are TIME-BOXED (`expires_at`, 7d): league gates don't
   check expiry, so the daily sweep (`POST /partner/inplaylabs/sweep`, Cloud
   Scheduler + `IPL_SWEEP_TOKEN` header) is what actually revokes them. If

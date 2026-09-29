@@ -362,6 +362,23 @@ async def me(user: dict = Depends(require_session_user)):
 # creation underneath them). The catalog stays open to them (read-only, and
 # /pricing must render); the webhook is not session-bound and only warns.
 
+def _partner_skus() -> list[str]:
+    """Catalog SKUs an inplayLABS member can get on inplayLABS: the
+    single-sport SKUs whose slug a configured IPL_TOOL_MAP tool grants
+    (one tool per sport, ADR-0002). Read from the live tool map so a tool
+    that isn't registered yet isn't advertised. An unset or malformed map
+    offers nothing rather than breaking /pricing."""
+    from api import partner  # lazy: JWT/Firestore imports, partner sessions only
+
+    try:
+        slugs = {spec["slug"] for spec in partner.tool_map().values()}
+    except Exception as exc:  # noqa: BLE001 — pricing must still render
+        logger.error("IPL_TOOL_MAP unusable for the partner catalog: %s", exc)
+        return []
+    return [sku for sku, spec in ent.SKUS.items()
+            if spec["kind"] == "sport" and spec["slugs"][0] in slugs]
+
+
 @app.get("/api/billing/catalog")
 async def billing_catalog(user: Optional[dict] = Depends(optional_session_user)):
     """The pricing page payload. Includes the caller's held slugs (empty when
@@ -369,8 +386,10 @@ async def billing_catalog(user: Optional[dict] = Depends(optional_session_user))
     per-SKU terms so a monthly holder's card can offer the 6-month upgrade.
     `partner_member` (additive, 2026-09-29) is true for an inplayLABS partner
     session, from the same predicate the billing 403s use, so /pricing swaps
-    its purchase controls for the inplayLABS note. Cosmetic only; the 403s
-    are the control."""
+    its purchase controls for the inplayLABS note. `partner_skus` (additive,
+    same day) lists the SKUs inplayLABS sells, for a partner session only
+    (empty otherwise), so each partner card says whether it is available
+    there. Cosmetic only; the 403s are the control."""
     held: list[str] = []
     held_packages: list[dict] = []
     if user is not None:
@@ -383,12 +402,14 @@ async def billing_catalog(user: Optional[dict] = Depends(optional_session_user))
             ]
         except Exception:
             held = []  # pricing must render even if Firestore hiccups
+    is_partner = user is not None and partner_uid.is_partner_uid(user.get("uid"))
     return {
         "catalog": ent.catalog(),
         "held_slugs": held,
         "held_packages": held_packages,
         "signed_in": user is not None,
-        "partner_member": user is not None and partner_uid.is_partner_uid(user.get("uid")),
+        "partner_member": is_partner,
+        "partner_skus": _partner_skus() if is_partner else [],
         "billing_configured": billing.configured(),
         "show_prices": billing.show_prices(),
     }

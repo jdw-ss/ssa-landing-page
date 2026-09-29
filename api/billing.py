@@ -185,10 +185,13 @@ def _stripe():
 # session uid. /pricing hides the controls for a partner session too, but
 # that is cosmetic; this is the control.
 
+# inplayLABS sells one tool per sport (the IPL_TOOL_MAP tools), not Golf, the
+# Football Bundle or All-Access, so this must not send a member there for
+# everything (/pricing's partner cards carry the per-package truth).
 PARTNER_BILLING_DETAIL = (
-    "Your SSA access comes through your inplayLABS membership, so it can't "
-    "be bought, upgraded or managed here. Manage your tools in your "
-    "inplayLABS account."
+    "You're signed in through inplayLABS, so SSA packages can't be bought, "
+    "upgraded or managed on an inplayLABS sign-in. The SSA models "
+    "inplayLABS offers are added or changed in your inplayLABS account."
 )
 
 
@@ -554,8 +557,11 @@ def _warn_if_partner(uid: str, etype: str, customer_id: str) -> None:
     """Make a Stripe event for a partner uid LOUD, without changing what the
     webhook does with it.
 
-    Checkout refuses partner uids since 2026-09-29, so an event that resolves
-    to one is either a purchase made before the guard or a bypass. Either way
+    Checkout refuses partner uids in code since 2026-09-29 (live from the
+    deploy that carries it), so an event that resolves to one should be a
+    purchase made before that deploy, a Checkout session opened before it
+    and completed afterwards (Stripe keeps a session open up to 24h), or a
+    bypass such as a subscription created in the Stripe Dashboard. Either way
     the webhook still recomputes, deliberately: skipping the write would leave
     the doc out of step with Stripe (a cancellation would never revoke, a new
     subscription would never grant), and refusing with a non-2xx only makes

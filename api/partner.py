@@ -18,13 +18,14 @@ Load-bearing design facts (full rationale in docs/adr/0002):
   uids. The guard in :func:`grant` enforces that at runtime. The other
   direction is enforced too, since 2026-09-29 (John: block partner members
   from Stripe): every billing path that could create or change Stripe
-  objects 403s a partner uid (api/billing.py ``_refuse_partner``), so no
-  new partner purchase can reach the webhook's full-overwrite
-  ``_recompute``. Before that, a partner member who bought would have had ``grants``/``source``/
-  ``expires_at`` dropped by ``_recompute`` and the Stripe slugs dropped by
-  the next launch's :func:`grant` ``set()``. The webhook still writes a
-  partner uid's doc if a Stripe event names one (a pre-2026-09-29
-  purchase), and logs a WARNING when it does.
+  objects 403s a partner uid (api/billing.py ``_refuse_partner``), so once
+  that is deployed no new partner purchase should reach the webhook's
+  full-overwrite ``_recompute``. A partner member who buys would have
+  ``grants``/``source``/``expires_at`` dropped by ``_recompute`` and the
+  Stripe slugs dropped by the next launch's :func:`grant` ``set()``. The
+  webhook still writes a partner uid's doc if a Stripe event names one (a
+  purchase, or a Checkout session opened, before the deploy that carries
+  the guard, or a bypass), and logs a WARNING when it does.
 
 - OPAQUE-ONLY. We request no email from the partner (John, 2026-08-25).
   The signed ``sub`` is the stable account key. The shared account widget

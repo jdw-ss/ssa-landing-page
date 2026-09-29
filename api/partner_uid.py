@@ -8,7 +8,8 @@ lane. Two rules key off that namespace and must never disagree:
   (the one carve-out from "only the Stripe webhook writes entitlements").
 - Billing refuses partner uids (John, 2026-09-29): checkout, upgrade,
   change-preview, the Customer Portal and Stripe customer creation all 403
-  them, so the webhook's full-overwrite recompute never meets a partner doc.
+  them, so the webhook's full-overwrite recompute should never meet a
+  partner doc (see billing._warn_if_partner for the legacy/bypass case).
 
 Both sides call :func:`is_partner_uid`. The prefix string literals live here
 and nowhere else in ``api/`` (pinned by tests/test_partner_billing_guard.py).

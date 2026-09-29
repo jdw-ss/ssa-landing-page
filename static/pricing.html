@@ -286,6 +286,9 @@
            of purchase controls. Tokens only; --text on --accent-wash over --bg
            measures 13.0:1. The server 403s partner billing calls regardless. */
         .partner-note {
+            /* width keeps the cards' 24px gutters at phone width; max-width
+               + auto margins alone ran the accent border edge to edge. */
+            width: calc(100% - 48px);
             max-width: 1000px;
             margin: 24px auto 0;
             padding: 14px 20px;
@@ -388,9 +391,9 @@
 
     <div class="partner-note" id="partner-note" role="note" hidden>
         <strong>You're signed in through inplayLABS.</strong>
-        Your SSA access comes with your inplayLABS membership, so packages
-        can't be bought, upgraded or managed here. Add or change tools in your
-        inplayLABS account.
+        SSA packages can't be bought, upgraded or managed on an inplayLABS
+        sign-in. The SSA models inplayLABS offers, marked “Available through
+        inplayLABS” below, are added or changed in your inplayLABS account.
     </div>
 
     <div class="free-strip">
@@ -423,7 +426,10 @@
     <div class="section-label">Bundle up</div>
     <div class="grid big" id="big-grid"></div>
 
-    <div class="foot-notes">
+    <!-- Hidden for an inplayLABS partner session (render()): it is purchase
+         copy, and its /account link bounces an email-less session to
+         /signin. -->
+    <div class="foot-notes" id="foot-notes">
         Have a promo code? Enter it at checkout.<br>
         Subscriptions automatically renew at the end of each monthly or 6-month
         term, at the then-current price for your package, until canceled; the
@@ -518,9 +524,16 @@
                 // inplayLABS partner session: no purchase path here at all
                 // (the server 403s it anyway). Inert text, and no /account
                 // link: /account bounces an email-less session to /signin.
-                action = held(data.held_slugs, item.slugs)
-                    ? '<div class="partner-slot held">✓ Included through inplayLABS</div>'
-                    : '<div class="partner-slot">Managed through inplayLABS</div>';
+                // inplayLABS sells one tool per sport, so only the SKUs the
+                // server lists in partner_skus (from its live tool map) can
+                // be got there; Golf, the bundle and All-Access can't.
+                if (held(data.held_slugs, item.slugs)) {
+                    action = '<div class="partner-slot held">✓ Included through inplayLABS</div>';
+                } else if ((data.partner_skus || []).includes(item.sku)) {
+                    action = '<div class="partner-slot">Available through inplayLABS</div>';
+                } else {
+                    action = '<div class="partner-slot">Not available with an inplayLABS sign-in</div>';
+                }
             } else if (held(data.held_slugs, item.slugs)) {
                 if (heldPkg && heldPkg.term !== "6mo" && TERM === "6mo" && showPrices) {
                     // Held monthly, viewing 6-month: the same-SKU term upgrade.
@@ -764,6 +777,7 @@
                 if (!resp.ok) throw new Error("catalog HTTP " + resp.status);
                 CATALOG = await resp.json();
                 document.getElementById("partner-note").hidden = !CATALOG.partner_member;
+                document.getElementById("foot-notes").hidden = !!CATALOG.partner_member;
                 renderGrids();
                 emitJsonLd(CATALOG);
             } catch (e) {

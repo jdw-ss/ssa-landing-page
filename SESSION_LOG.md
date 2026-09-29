@@ -6,6 +6,68 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-29 — Partner billing guard: review fixes (still not deployed)
+
+A review of `21c791d` (the entry below) raised 11 findings. Each was checked
+against the code and the preview, and all were real. Two were duplicates.
+Nothing is pushed or deployed: the live revision still accepts partner
+checkout.
+
+- **Partner cards promised a purchase path that doesn't exist.** Every card
+  a partner didn't hold read "Managed through inplayLABS", and the note and
+  the 403 detail said to add tools on inplayLABS. But inplayLABS sells one
+  tool per sport (nfl, ncaaf, cfl), never Golf, the bundle or All-Access.
+  The catalog now carries an additive `partner_skus` (partner sessions
+  only): the sport SKUs whose slug the live `IPL_TOOL_MAP` grants, `[]` when
+  the map is unset or malformed. Cards read "✓ Included through inplayLABS",
+  "Available through inplayLABS" or "Not available with an inplayLABS
+  sign-in". The note and `PARTNER_BILLING_DETAIL` now say packages can't be
+  bought on an inplayLABS sign-in, and send the member to inplayLABS only
+  for the models it offers. **Open for John:** whether to point partners at
+  a separate Google-account purchase for Golf/bundle/All-Access. Nothing
+  here invents that path.
+- **/pricing foot-notes** (promo codes, prorated upgrades, an `/account`
+  link that bounces an email-less session to /signin) are hidden for a
+  partner session.
+- **Partner note gutter**: `width: calc(100% - 48px)`, so at 375px it sits
+  at 24–351 like the cards, instead of 0–375. `.free-strip` and `.banner`
+  have the same edge-to-edge behaviour; left alone as an optional follow-up.
+- **/account Manage billing** shows the 403 detail instead of "Try again in
+  a moment". Only the preview (whose dev stub has an email) reaches it
+  today.
+- **Docs claimed the guard was live.** CLAUDE.md (data layer and the
+  partner-writer gotcha), ADR-0002's amendment note, ADR-0001's resolved
+  note and the workspace `PROJECT_INDEX.md` row now say "in code, NOT yet
+  deployed". The "can only be a pre-guard purchase" overstatements in those
+  places and in the `partner_uid.py`/`partner.py`/`_warn_if_partner`
+  docstrings now also list a Checkout session opened before the deploy
+  (Checkout sessions set no `expires_at`, so Stripe's 24h default applies)
+  and a Dashboard-created subscription. CLAUDE.md adds the at-deploy step:
+  list open Checkout sessions and customers whose `client_reference_id` or
+  `metadata.uid` starts with `ipl_`/`ipltest_`, expire them, and reconcile.
+- **Finding the partner WARNING**: the app logs plain text, so the level is
+  only a prefix inside `textPayload`. CLAUDE.md now gives the Logs Explorer
+  filters (`textPayload:"resolved to inplayLABS partner uid"`, and
+  `"refused for inplayLABS partner uid"` for the refusals). A test fails if
+  either stops matching the emitted line.
+- **Tests** (33 new, suite 140 passed, was 107): lookalike uids (`iplAbc…`
+  28 alphanumerics, `IPL_`, `Ipl_`, `ipltestx`, …) are not partner uids,
+  and a real `iplAbc…` uid bills normally. Mutating the predicate to
+  `startswith("ipl")` or adding `.lower()` fails 8 and 3 tests. Other new
+  tests cover the `partner_skus` catalog field, per-card availability, the
+  copy, no reachable `/account` link on the partner view, the gutter, the
+  /account 403 banner (new `tests/js/account_portal.js` harness, with a
+  shared `tests/js/fakedom.js`), and normal-visitor held states (Active,
+  Included in Bundle/All-Access, Upgrade, the 6-month switch via the page's
+  own term-toggle handler, and the launch gate). 11 of the new tests failed
+  before the fixes. The rest are regression locks on behaviour that was
+  already right. A scratch render of `d94c593`'s pricing.html against this
+  one gave identical cards for 16 non-partner payload/term combinations.
+- **Preview**: the workspace `ssa-landing-partner` launch config (not in
+  git) gains an `IPL_TOOL_MAP` with the three tools. Checked at desktop and
+  375px on 8087, and 8085 (normal) is unchanged. No static JS or CSS file
+  was edited (inline page code only), so no `?v=` bump.
+
 ## 2026-09-29 — Partner members blocked from Stripe (ADR-0002 decision 2 enforced)
 
 John decided to block inplayLABS partner members from Stripe checkout. This

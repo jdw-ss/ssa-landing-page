@@ -192,9 +192,10 @@ the code and this Amendment are right.
    docs, but nothing on the checkout path refuses an `ipl_*` session. So the
    webhook leaves partner docs alone only while partner members don't buy
    through /pricing.
-   **Resolved later on 2026-09-29:** billing now refuses partner sessions
-   with a 403, and the webhook warns on a partner uid instead of skipping
-   it. See ADR-0002 decision 2's second amendment note.
+   **Resolved in code later on 2026-09-29:** billing refuses partner
+   sessions with a 403, and the webhook warns on a partner uid instead of
+   skipping it. Live only from the deploy that carries it (not deployed as
+   of 2026-09-29). See ADR-0002 decision 2's second amendment note.
 3. **Not monthly-only.** Since 2026-08-08 every SKU sells two terms: monthly,
    and a 6-month prepaid cycle at 50% off six monthly cycles. The code has
    `TERMS = ("monthly", "6mo")` in `api/billing.py`, and the bootstrap mints

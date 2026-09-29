@@ -469,6 +469,11 @@
                 }
                 if (resp.status === 404) {
                     showBanner("No billing profile yet — subscribe to a package first.", "info");
+                } else if (resp.status === 403) {
+                    // Permanent (an inplayLABS partner session, 2026-09-29):
+                    // show the server's reason, not "try again".
+                    const body = await resp.json().catch(() => ({}));
+                    showBanner(body.detail || "Billing can't be managed on this sign-in.", "info");
                 } else if (resp.status === 503) {
                     showBanner("Billing isn't live quite yet.", "info");
                 } else {

@@ -53,7 +53,9 @@ touching six league repos or the Stripe machinery.
    > partner-writer gotcha in `CLAUDE.md`.
 
    > **[Amended 2026-09-29, later the same day] Decision 2 is now enforced
-   > in code.** John decided to block partner members from Stripe. The prefix
+   > in code** (commit `21c791d` and its review-fix follow-up; live only
+   > from the deploy that carries them, and not deployed as of 2026-09-29).
+   > John decided to block partner members from Stripe. The prefix
    > literals and the one predicate, `is_partner_uid`, live in
    > `api/partner_uid.py`. `grant()` uses it for its existing guard, and
    > `api/billing.py::_refuse_partner` uses it to 403 a partner session
@@ -61,13 +63,18 @@ touching six league repos or the Stripe machinery.
    > every billing path that could create or change Stripe objects:
    > checkout, change-preview, change (upgrade), the Customer Portal, and
    > `_get_or_create_customer` as the backstop. The catalog stays readable
-   > and gains an additive `partner_member` flag, so /pricing replaces its
-   > purchase controls with an inplayLABS note. That UI change is cosmetic.
-   > The webhook is deliberately NOT gated: a Stripe event that resolves to
-   > a partner uid, which can only be a purchase made before the guard,
-   > still recomputes, so the doc keeps tracking Stripe (a cancellation
-   > still revokes). It also logs a WARNING naming the uid, for manual
-   > reconciliation. Pinned by `tests/test_partner_billing_guard.py`.
+   > and gains additive `partner_member` and `partner_skus` fields, so
+   > /pricing replaces its purchase controls with an inplayLABS note and
+   > each card says whether inplayLABS sells it (one tool per sport per
+   > decision 1, so never Golf, the Football Bundle or All-Access). That UI
+   > change is cosmetic. The webhook is deliberately NOT gated: a Stripe
+   > event that resolves to a partner uid should only be a purchase made
+   > before the deploy, a Checkout session opened before it and completed
+   > within Stripe's 24h session lifetime, or a bypass such as a
+   > subscription created in the Stripe Dashboard. It still recomputes, so
+   > the doc keeps tracking Stripe (a cancellation still revokes), and logs a
+   > WARNING naming the uid, for manual reconciliation. Pinned by
+   > `tests/test_partner_billing_guard.py`.
 
 3. **Opaque-only** (John): no email requested from the partner. The signed
    `sub` is the account key; the raw value never appears in uids or logs

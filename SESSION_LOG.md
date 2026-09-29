@@ -38,7 +38,9 @@ Write an entry at the end of any non-trivial session (anything that produced com
   and each again with `invoice_now=True`; advance a test clock past two renewals.
 - **Open:** `/terms` §7 ("the upgrade is prorated: you receive credit … against the new one") and
   the undeployed copy both depend on the answer. Customers who upgraded since 2026-08-26 may hold
-  unapplied pending credits (a read-only live check can list them; not run).
+  unapplied pending credits — **checked 2026-09-29, read-only, live account: 0 pending invoice items, 0 proration credit
+  lines applied on the 12 invoices since 2026-08-26, 0 subscriptions canceled since 2026-08-26.**
+  No customer has upgraded through the 08-26 flow, so no one is owed credit today.
 - **Follow-up, same day (John's decision; separate commit, not deployed):** ship the partner block
   and the webhook double-billing fix now, with upgrade copy that makes NO credit claim. /pricing
   foot-notes and the checkout partial-overlap 409 now say "you pay the new package price today, and

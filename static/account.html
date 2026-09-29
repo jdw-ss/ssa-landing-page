@@ -256,11 +256,12 @@
             // loop, so no "refresh this page" instruction here.
             showBanner("Payment received — activating your access…", "success");
         } else if (params.get("upgrade") === "success") {
-            // Future tense: the redirect can beat the webhook that cancels
-            // the replaced plan, and the credit only exists after it does.
-            showBanner("Upgrade applied — unused time on your previous plan will " +
-                       "be credited to your account. Your new package is " +
-                       "listed below.", "success");
+            // True before the webhook runs: the redirect can beat the event
+            // that cancels the replaced plan and writes the new package, and
+            // this URL carries no &sku= for pollForActivation to watch.
+            showBanner("Upgrade received — your previous plan is being replaced. " +
+                       "Your new package can take a minute or two to appear " +
+                       "under Your packages.", "success");
         }
 
         // E4: where each package's product lives. The success URL's &sport=

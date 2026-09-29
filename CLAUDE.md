@@ -69,15 +69,22 @@ applies to the league apps. Architecture of record:
   customer-balance credit, and which invoice (if any) applies it is
   unverified: see the upgrade-credit gotcha. The old in-place
   `Subscription.modify` price swap is gone (see `apply_plan_change`).
-  Customer copy since 2026-09-29 (John's direction, narrowed on review to
-  what is verified): "you pay the new package price today, and unused time
-  on your current plan is credited to your account" in the /pricing
-  foot-notes and the checkout 409, a plain "Upgrade" button, the confirm box
-  ("the full price, $X/month plus any applicable tax"), and the /account
-  upgrade banner ("will be credited": the redirect can beat the webhook).
-  Never "pay the difference" (the retired swap), never a refund, and no
-  claim about which renewal or invoice the credit reaches until the sandbox
-  check says so. Pinned by `tests/test_upgrade_copy.py`. `/terms` §7
+  Customer copy makes NO claim about credit for unused time (John's
+  decision, 2026-09-29: ship the partner block and the webhook fix now,
+  with copy that is true whether or not the credit ever lands): "you pay
+  the new package price today, and your current plan is canceled once
+  checkout completes" in the /pricing foot-notes and the checkout 409, a
+  plain "Upgrade" button, the confirm box ("Replaces Y. You'll pay the full
+  price, $X/month plus any applicable tax, at checkout — nothing changes
+  until you do.", nothing after it), and the /account `?upgrade=success`
+  banner ("Upgrade received — your previous plan is being replaced. Your new
+  package can take a minute or two to appear under Your packages.", true
+  before the webhook runs; that URL has no `&sku=` poll). Never "credit",
+  "unused time", "prorat…" or "pay the difference" (the retired swap), never
+  a refund. `tests/test_upgrade_copy.py` bans those words on /pricing and
+  /account (whole file, comments included) and in every `HTTPException(409,
+  …)` detail under `api/`; a credit sentence comes back only after the
+  sandbox check, with the ban narrowed in the same commit. `/terms` §7
   "Upgrades" still says "the upgrade is prorated ... against the new one";
   that is legal text, left for John. If a replaced subscription can't be
   confirmed cancelled (a transient Stripe error on the cancel, and a re-read
@@ -291,9 +298,12 @@ None.
   says `show_prices: false`. You only see it locally when neither Stripe nor
   the override is set. `SHOW_PREVIEW_PRICES=1` overrides for LOCAL
   exploration only (it's in the launch config); never set it on Cloud Run.
-- **An upgrade's proration credit is NOT verified to reach any invoice.
-  Sandbox-check it before deploying the 2026-09-29 upgrade copy** (review
-  finding, 2026-09-29). The webhook cancels each replaced subscription with
+- **An upgrade's proration credit is NOT verified to reach any invoice**
+  (review finding, 2026-09-29). No longer a deploy gate: since John's
+  2026-09-29 decision the upgrade copy makes no credit claim (see Billing
+  above). The check below still decides whether a credit sentence may come
+  back, whether `/terms` §7 is true, and whether the cancel needs
+  `invoice_now`. The webhook cancels each replaced subscription with
   `Subscription.cancel(id, prorate=True)` and no `invoice_now`. Stripe's API
   reference says `prorate` "will generate a proration invoice item that
   credits remaining unused time": a pending invoice item tied to the
@@ -312,12 +322,13 @@ None.
   `Invoice.create_preview(subscription=<new sub>)` shows the credit line.
   Repeat for monthly → 6-month on one SKU and for two subscriptions → one
   bundle. Then John decides: if the credit lands on the new plan's renewal,
-  the copy may say "toward your next renewal" again; if not, either cancel
-  with `prorate=True, invoice_now=True` (a finalized negative invoice moves
-  the credit onto the customer balance, which Stripe applies to the next
-  finalized invoice; a billing change) or drop the credit sentence.
-  Re-read `/terms` §7 "Upgrades" against the result and bump `TOS_VERSION`
-  if it changes materially.
+  the copy may say so (narrow the ban in `tests/test_upgrade_copy.py` in
+  the same commit); if not, either cancel with `prorate=True,
+  invoice_now=True` (a finalized negative invoice moves the credit onto the
+  customer balance, which Stripe applies to the next finalized invoice; a
+  billing change) or keep the copy silent on credit. Re-read `/terms` §7
+  "Upgrades" against the result and bump `TOS_VERSION` if it changes
+  materially.
 - **Local `.env` points at a disposable Stripe CLI sandbox** (created
   2026-08-08, expires 2026-08-15 unless claimed) — the previous test key had
   expired. Re-run `stripe sandbox create` + `python3 -m

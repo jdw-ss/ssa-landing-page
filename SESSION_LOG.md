@@ -39,6 +39,17 @@ Write an entry at the end of any non-trivial session (anything that produced com
 - **Open:** `/terms` §7 ("the upgrade is prorated: you receive credit … against the new one") and
   the undeployed copy both depend on the answer. Customers who upgraded since 2026-08-26 may hold
   unapplied pending credits (a read-only live check can list them; not run).
+- **Follow-up, same day (John's decision; separate commit, not deployed):** ship the partner block
+  and the webhook double-billing fix now, with upgrade copy that makes NO credit claim. /pricing
+  foot-notes and the checkout partial-overlap 409 now say "you pay the new package price today, and
+  your current plan is canceled once checkout completes" (the webhook cancels it immediately on
+  `checkout.session.completed`); the confirm box drops its credit sentence; the `?upgrade=success`
+  banner reads "Upgrade received — your previous plan is being replaced. Your new package can take a
+  minute or two to appear under Your packages." (the old "is listed below" was false until the
+  webhook ran, and that URL has no `&sku=` poll). `tests/test_upgrade_copy.py` now bans
+  credit / unused time / prorat / difference on both pages and in every 409 detail under `api/`
+  (failed 5/5 on the old copy first). The sandbox check is no longer a deploy gate for the copy;
+  it still decides `/terms` §7 (untouched, John's) and `invoice_now`.
 
 ---
 

@@ -209,14 +209,12 @@ def test_checkout_refuses_a_partial_overlap_and_points_at_the_upgrade(monkeypatc
     detail = str(exc.value.detail)
     assert "upgrade" in detail.lower()
     # John, 2026-09-29: the upgrade is a new Checkout at the full price, and
-    # the replaced plan's unused time is credit, not a charge for the
-    # difference. /pricing shows this detail verbatim if checkout 409s. No
-    # claim about which invoice the credit reaches: that is unverified (see
-    # tests/test_upgrade_copy.py).
-    assert ("you pay the new package price today, and unused time on your "
-            "current plan is credited to your account") in detail
-    assert "difference" not in detail and "prorat" not in detail.lower()
-    assert "next renewal" not in detail and "future invoice" not in detail
+    # the webhook cancels the replaced plan once it completes. /pricing shows
+    # this detail verbatim if checkout 409s. No claim about credit for unused
+    # time: whether the cancel's proration ever lands is unresolved (see
+    # tests/test_upgrade_copy.py, which scans every 409 detail for one).
+    assert ("you pay the new package price today, and your current plan is "
+            "canceled once checkout completes") in detail
 
 
 def test_checkout_success_url_names_the_sku_and_allowlisted_origin(monkeypatch):

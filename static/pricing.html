@@ -437,8 +437,8 @@
         before you subscribe. Cancel anytime from
         <a href="/account">your account</a> — cancellation stops future renewals
         and your access continues through the end of the paid period. When you
-        upgrade, you pay the new package price today, and unused time on your
-        current plan is credited to your account. No phone calls, no
+        upgrade, you pay the new package price today, and your current plan is
+        canceled once checkout completes. No phone calls, no
         retention scripts. Payments are processed by Stripe as merchant of
         record, and your purchase may additionally be subject to Stripe/Link
         terms of sale presented at checkout. All payments are non-refundable
@@ -600,9 +600,9 @@
             // Upgrades settle through a fresh Checkout (2026-08-26): nothing
             // is charged and nothing is cancelled until the member confirms
             // card and price on Stripe's page. After payment the webhook
-            // cancels the old subscription, leaving a pending credit item for
-            // its unused time, not balance credit; which invoice applies it
-            // is unverified (CLAUDE.md), so the box names none.
+            // cancels the old subscription at once. Whether the member gets
+            // anything back for its remaining term is unresolved (CLAUDE.md,
+            // SESSION_LOG 2026-09-29), so the box makes no claim about it.
             // Stripe (merchant of record) adds tax at checkout where due.
             const per = plan.renews_every === "6-month" ? "/6 months" : "/month";
             const box = document.createElement("div");
@@ -611,9 +611,7 @@
                 "Replaces " + plan.replaces.join(", ") + ". " +
                 "You'll pay the full price, " + '<span class="amt">' +
                 fmt(plan.due_now_cents) + "</span>" + per +
-                " plus any applicable tax, at checkout — nothing changes until you do. " +
-                "Unused time on " + plan.replaces.join(", ") +
-                " is credited to your account." +
+                " plus any applicable tax, at checkout — nothing changes until you do." +
                 '<div class="upg-actions">' +
                 '<button class="btn btn-primary" data-confirm="' + plan.sku + '">Continue to checkout</button>' +
                 '<button class="btn" data-dismiss>Keep current</button>' +

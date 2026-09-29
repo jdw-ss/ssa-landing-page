@@ -265,8 +265,8 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly",
         raise HTTPException(
             409,
             "That package replaces one you already have — use the upgrade flow "
-            "instead: you pay the new package price today, and unused time on "
-            "your current plan is credited to your account "
+            "instead: you pay the new package price today, and your current "
+            "plan is canceled once checkout completes "
             "(POST /api/billing/change)",
         )
 
@@ -491,8 +491,8 @@ def apply_plan_change(user: dict, sku: str, term: str = "monthly") -> dict:
     guide says items left by an immediate cancel "won't be processed unless
     you specifically generate an invoice that includes them" (while also
     warning another active subscription might bill them). So whether the
-    new plan's renewals ever apply the credit is open; customer copy says
-    only that it is credited to the account. `invoice_now=True` would
+    new plan's renewals ever apply the credit is open, so customer copy makes
+    no claim about it (John, 2026-09-29). `invoice_now=True` would
     finalize a negative invoice and move the credit onto the balance, which
     Stripe applies to the next finalized invoice. That is a billing change,
     John's call after the sandbox check in CLAUDE.md.

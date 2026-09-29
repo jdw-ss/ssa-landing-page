@@ -6,6 +6,42 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-29 — Upgrade-credit experiment: blocked; what the docs say
+
+**Agent**: claude-opus-5-5 | **Branch**: main | **Commits**: this commit (docs only)
+
+- **Question:** does `stripe.Subscription.cancel(sub_id, prorate=True)` in `_retire_superseded`
+  (the upgrade webhook) ever credit the customer? The upgrade copy (44bc2eb, NOT deployed) says
+  "unused time on your current plan is credited to your account".
+- **Experiment did not run:** the only key on this machine is the `.env` sandbox key
+  (`rkcs_test_…`, a Stripe-CLI sandbox restricted key; the sandbox was due to expire 2026-08-15 per
+  this file's Stripe section). The harness only allowed `sk_test_`/`rk_test_` and stopped before any
+  call. Also: no `stripe` package outside a venv. Nothing was created in Stripe.
+- **What Stripe's docs say (verified by fetch, not by experiment):** `prorate=True` creates a PENDING
+  proration invoice item tied to the cancelled subscription, not customer-balance credit;
+  "scheduled invoices for subscriptions other than the specified subscription will ignore the
+  invoice item"; after an immediate cancel, items "won't be processed unless you specifically
+  generate an invoice that includes them". The new plan's first invoice is paid inside Checkout
+  BEFORE the cancel, so it can never carry the credit. Most likely the credit is never applied.
+- **Candidate fix and its catch:** `cancel(..., prorate=True, invoice_now=True)` bills the pending
+  items on a final negative invoice, moving the credit to the customer balance (applies to the next
+  finalized invoice). BUT the Managed Payments docs list as unsupported "creating a subscription
+  outside of Checkout or Payment Links", "attaching invoice items … on a Customer object to a
+  Managed Payments subscription" and "generating a one-off invoice … outside the billing period" —
+  so `invoice_now` may be refused or behave differently on this account. Friend-code subs (100% off
+  forever) produce $0 credit either way.
+- **A faithful test needs:** a fresh sandbox with Managed Payments configured like production
+  (John: `stripe sandbox create`, then `python3 -m scripts.stripe_bootstrap_test`), the harness
+  allowing `rkcs_test_` with a `livemode == false` balance check, and the REAL Checkout flow in test
+  mode (test card 4242…) rather than `Subscription.create`; record `session.managed_payments` and
+  `subscription.billing_mode`; scenarios: monthly→bundle, 6-month→monthly bundle, two subs→bundle,
+  and each again with `invoice_now=True`; advance a test clock past two renewals.
+- **Open:** `/terms` §7 ("the upgrade is prorated: you receive credit … against the new one") and
+  the undeployed copy both depend on the answer. Customers who upgraded since 2026-08-26 may hold
+  unapplied pending credits (a read-only live check can list them; not run).
+
+---
+
 ## 2026-09-29 — Upgrade copy review fixes: credit claim narrowed, webhook cancel retries (not deployed)
 
 A review of `c575003` (the entry below) raised 7 findings. Six were real and

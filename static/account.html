@@ -256,8 +256,10 @@
             // loop, so no "refresh this page" instruction here.
             showBanner("Payment received — activating your access…", "success");
         } else if (params.get("upgrade") === "success") {
-            showBanner("Upgrade applied — unused time on your previous plan is " +
-                       "credited toward your next renewal. Your new package is " +
+            // Future tense: the redirect can beat the webhook that cancels
+            // the replaced plan, and the credit only exists after it does.
+            showBanner("Upgrade applied — unused time on your previous plan will " +
+                       "be credited to your account. Your new package is " +
                        "listed below.", "success");
         }
 

@@ -7,9 +7,10 @@ The apex had none until 2026-08-07, even though the SKU catalog, `covered()` and
   * that an unrecognised Stripe price can never silently revoke a customer,
   * that an upgrade replaces the old subscription instead of stacking onto it.
 
-Stripe is stubbed throughout — these are logic tests, not integration tests. The
-prorated-upgrade path still needs one real test-mode transaction before launch;
-see the note on FakeStripe.Invoice.create_preview.
+Stripe is stubbed throughout — these are logic tests, not integration tests.
+Where an upgrade's proration credit lands (which invoice, if any, applies the
+pending item the cancel leaves) still needs a real sandbox transaction; see
+the upgrade-credit deploy gate in CLAUDE.md.
 """
 from __future__ import annotations
 
@@ -209,10 +210,13 @@ def test_checkout_refuses_a_partial_overlap_and_points_at_the_upgrade(monkeypatc
     assert "upgrade" in detail.lower()
     # John, 2026-09-29: the upgrade is a new Checkout at the full price, and
     # the replaced plan's unused time is credit, not a charge for the
-    # difference. /pricing shows this detail verbatim if checkout 409s.
+    # difference. /pricing shows this detail verbatim if checkout 409s. No
+    # claim about which invoice the credit reaches: that is unverified (see
+    # tests/test_upgrade_copy.py).
     assert ("you pay the new package price today, and unused time on your "
-            "current plan is credited toward your next renewal") in detail
+            "current plan is credited to your account") in detail
     assert "difference" not in detail and "prorat" not in detail.lower()
+    assert "next renewal" not in detail and "future invoice" not in detail
 
 
 def test_checkout_success_url_names_the_sku_and_allowlisted_origin(monkeypatch):
@@ -286,10 +290,9 @@ def test_term_policy_blocks_only_the_same_sku_downgrade(monkeypatch):
     """Same-SKU 6mo → monthly is a plain downgrade and stays blocked. A BIGGER
     package on monthly held against a 6-month plan is a real upgrade and now
     proceeds (2026-08-26): the Checkout flow cancels the old subscription with
-    prorate=True after payment, so the prepaid remainder becomes customer-
-    balance credit instead of stranded money. This exact combination was the
-    bug report — the old policy blocked it and the pricing page looked like it
-    'did nothing'."""
+    prorate=True after payment instead of swapping its price in place. This
+    exact combination was the bug report — the old policy blocked it and the
+    pricing page looked like it 'did nothing'."""
     monkeypatch.setenv("STRIPE_PRICE_SPORT_NCAAF_6MO", "price_ncaaf_6")
     monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
         _six_sub("sub_1", "active", "price_ncaaf_6"),
@@ -301,6 +304,40 @@ def test_term_policy_blocks_only_the_same_sku_downgrade(monkeypatch):
     assert [s["sku"] for s in replaceable] == ["sport_ncaaf"] and blocked == []
     replaceable, blocked = billing._scan_changes("cus_1", "bundle_football", "6mo")
     assert [s["sku"] for s in replaceable] == ["sport_ncaaf"] and blocked == []
+
+
+def test_same_sku_term_downgrade_409s_say_how_to_reach_monthly(monkeypatch):
+    """The only blocked change is 6-month X -> monthly X (_scan_changes). Both
+    409 details used to be wrong for it: checkout told a 6-month holder to
+    "choose the 6-month X instead" (the plan they already hold), and the
+    preview said it "renews monthly automatically only if you cancel the
+    6-month term first" (cancelling ends the plan at period end; nothing
+    switches it to monthly). /pricing shows either detail verbatim."""
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NCAAF", "price_ncaaf_m")
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NCAAF_6MO", "price_ncaaf_6")
+    monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
+        _six_sub("sub_1", "active", "price_ncaaf_6"),
+    ]))
+    monkeypatch.setattr(ent, "get_entitlements",
+                        lambda uid: {"slugs": ["ncaaf"], "packages": []})
+    monkeypatch.setattr(ent, "get_customer",
+                        lambda uid: {"stripe_customer_id": "cus_1"})
+    monkeypatch.setattr(billing, "_get_or_create_customer", lambda user: "cus_1")
+    user = {"uid": "u", "email": "a@b.c"}
+    details = []
+    for call in (lambda: billing.create_checkout_session(user, "sport_ncaaf"),
+                 lambda: billing.plan_change_preview(user, "sport_ncaaf"),
+                 lambda: billing.apply_plan_change(user, "sport_ncaaf")):
+        with pytest.raises(HTTPException) as exc:
+            call()
+        assert exc.value.status_code == 409
+        details.append(str(exc.value.detail))
+    for detail in details:
+        assert "NCAAF Package" in detail, detail
+        assert ("To move to monthly, cancel it from your account and "
+                "subscribe monthly once the paid term ends.") in detail, detail
+        assert "choose the 6-month" not in detail, detail
+        assert "renews monthly automatically" not in detail, detail
 
 
 def test_overlapping_checkout_is_routed_to_the_upgrade_flow(monkeypatch):

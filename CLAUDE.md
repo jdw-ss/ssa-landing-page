@@ -64,17 +64,22 @@ applies to the league apps. Architecture of record:
   `/api/billing/change`, which since 2026-08-26 opens a NEW Stripe Checkout
   for the target plan (no promo codes). Nothing changes until that checkout
   completes: on `checkout.session.completed` the webhook cancels the replaced
-  subscriptions with `prorate=True`, and their unused time becomes
-  customer-balance credit against future invoices. The old in-place
+  subscriptions with `prorate=True`. Stripe records their unused time as a
+  PENDING proration invoice item tied to the cancelled subscription, not
+  customer-balance credit, and which invoice (if any) applies it is
+  unverified: see the upgrade-credit gotcha. The old in-place
   `Subscription.modify` price swap is gone (see `apply_plan_change`).
-  Customer copy says so since 2026-09-29 (John): "you pay the new package
-  price today, and unused time on your current plan is credited toward your
-  next renewal" in the /pricing foot-notes and the checkout 409, a plain
-  "Upgrade" button, the confirm box ("the full price"), and the /account
-  upgrade banner. Never "pay the difference" (the retired swap), and never a
-  refund: the credit is balance, not cash back. Pinned by
-  `tests/test_upgrade_copy.py`. `/terms` §7 "Upgrades" still says "the
-  upgrade is prorated"; that is legal text, left for John
+  Customer copy since 2026-09-29 (John's direction, narrowed on review to
+  what is verified): "you pay the new package price today, and unused time
+  on your current plan is credited to your account" in the /pricing
+  foot-notes and the checkout 409, a plain "Upgrade" button, the confirm box
+  ("the full price, $X/month plus any applicable tax"), and the /account
+  upgrade banner ("will be credited": the redirect can beat the webhook).
+  Never "pay the difference" (the retired swap), never a refund, and no
+  claim about which renewal or invoice the credit reaches until the sandbox
+  check says so. Pinned by `tests/test_upgrade_copy.py`. `/terms` §7
+  "Upgrades" still says "the upgrade is prorated ... against the new one";
+  that is legal text, left for John
 - **Auth**: firebase-admin session cookies (`api/auth.py`); shared
   `ssa-auth-71d16` Firebase project; `static/js/auth.js` façade (vendored,
   same as every league) + `static/js/account.js` (the Account widget all apex
@@ -279,6 +284,33 @@ None.
   says `show_prices: false`. You only see it locally when neither Stripe nor
   the override is set. `SHOW_PREVIEW_PRICES=1` overrides for LOCAL
   exploration only (it's in the launch config); never set it on Cloud Run.
+- **An upgrade's proration credit is NOT verified to reach any invoice.
+  Sandbox-check it before deploying the 2026-09-29 upgrade copy** (review
+  finding, 2026-09-29). The webhook cancels each replaced subscription with
+  `Subscription.cancel(id, prorate=True)` and no `invoice_now`. Stripe's API
+  reference says `prorate` "will generate a proration invoice item that
+  credits remaining unused time": a pending invoice item tied to the
+  cancelled subscription, not customer-balance credit. The docs conflict on
+  what sweeps it. The invoice-item reference says scheduled invoices for
+  other subscriptions ignore an item set to one subscription, and the cancel
+  guide says items left by an immediate cancel "won't be processed unless
+  you specifically generate an invoice that includes them", yet the same
+  guide warns another active subscription might bill them. Riskiest case: a
+  6-month plan with ~5 months left, upgraded to a monthly bigger package.
+  **Check** (local `.env` sandbox + `python3 -m scripts.stripe_bootstrap_test`
+  + `stripe listen`, never live): buy a 6-month sport, upgrade to the monthly
+  Football Bundle through /pricing, complete checkout, then inspect the
+  invoice item the cancel created (`proration`,
+  `parent.subscription_details.subscription`, still pending?) and whether
+  `Invoice.create_preview(subscription=<new sub>)` shows the credit line.
+  Repeat for monthly → 6-month on one SKU and for two subscriptions → one
+  bundle. Then John decides: if the credit lands on the new plan's renewal,
+  the copy may say "toward your next renewal" again; if not, either cancel
+  with `prorate=True, invoice_now=True` (a finalized negative invoice moves
+  the credit onto the customer balance, which Stripe applies to the next
+  finalized invoice; a billing change) or drop the credit sentence.
+  Re-read `/terms` §7 "Upgrades" against the result and bump `TOS_VERSION`
+  if it changes materially.
 - **Local `.env` points at a disposable Stripe CLI sandbox** (created
   2026-08-08, expires 2026-08-15 unless claimed) — the previous test key had
   expired. Re-run `stripe sandbox create` + `python3 -m
@@ -331,10 +363,12 @@ None.
   Stripe customers whose `client_reference_id` or `metadata.uid` starts
   with `ipl_` or `ipltest_`, expire the open sessions, and cancel or
   reconcile any subscription found. **Live check, 2026-09-29** (read-only,
-  Firestore `ssa-auth-71d16`): no partner uid has a Stripe customer
+  Firestore `ssa-auth-71d16`): no partner uid has a Stripe customer mapping
   (`customers/{uid}.stripe_customer_id`, which `_get_or_create_customer`
   writes before any Checkout session exists), so no partner account has
-  reached checkout; all 11 partner `entitlements` docs are in partner shape
+  reached checkout. An unmapped Stripe customer is still possible (a
+  `set_customer` failure after `stripe.Customer.create`), but no session
+  could have been created for it; all 11 partner `entitlements` docs are in partner shape
   (`source: inplaylabs` plus `grants`) and none was overwritten by the
   webhook; the one partner `customers/{uid}` doc holds only the ToS stamp.
   Stripe itself was not queried, so the at-deploy step still stands for

@@ -77,10 +77,11 @@ touching six league repos or the Stripe machinery.
    > `tests/test_partner_billing_guard.py`.
 
    > **[Amended 2026-09-29, live check]** A read-only check of Firestore
-   > `ssa-auth-71d16` found no partner purchase made before the guard. No
-   > partner uid has a Stripe customer mapping
-   > (`customers/{uid}.stripe_customer_id`, written before any Checkout
-   > session is created), so no partner account has reached checkout. The 11
+   > `ssa-auth-71d16` found no partner purchase as of 2026-09-29 (the guard
+   > is committed but not yet deployed). No partner uid has a Stripe
+   > customer mapping (`customers/{uid}.stripe_customer_id`, written before
+   > any Checkout session is created), so no partner account has reached
+   > checkout. The 11
    > partner `entitlements` docs are all in partner shape (`source:
    > inplaylabs` plus `grants`), none overwritten by the webhook, and the one
    > partner `customers/{uid}` doc holds only the ToS stamp. Stripe itself

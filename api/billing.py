@@ -14,8 +14,10 @@ Model (John's decisions, 2026-07-30; terms added 2026-08-08):
     superseded subscriptions instead of stacking a second one. Since
     2026-08-26 an upgrade is a NEW Checkout for the target plan
     (apply_plan_change); the webhook cancels the replaced subscriptions with
-    prorate=True only after checkout.session.completed, crediting their
-    unused time to the customer balance. The in-place prorated price swap
+    prorate=True only after checkout.session.completed. Stripe turns their
+    unused time into a PENDING proration invoice item tied to the cancelled
+    subscription, not customer-balance credit; which invoice (if any) applies
+    it is unverified (CLAUDE.md, billing). The in-place prorated price swap
     of 2026-08-07 is retired.
   - No free trials. Promotion codes allowed at checkout; the friend codes are
     100%-off-forever, single-use each (scripts/stripe_bootstrap_live.py).
@@ -258,19 +260,13 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly",
     # replaced subscriptions with proration once it completes).
     replaceable, blocked = _scan_changes(customer_id, sku, term)
     if blocked:
-        raise HTTPException(
-            409,
-            "You're on the 6-month term for " +
-            ", ".join(b["label"] for b in blocked) +
-            f" — choose the 6-month {ent.SKUS[sku]['label']} instead, so your "
-            "prepaid time counts toward it",
-        )
+        _raise_blocked(blocked, sku)
     if replaceable:
         raise HTTPException(
             409,
             "That package replaces one you already have — use the upgrade flow "
             "instead: you pay the new package price today, and unused time on "
-            "your current plan is credited toward your next renewal "
+            "your current plan is credited to your account "
             "(POST /api/billing/change)",
         )
 
@@ -318,11 +314,13 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly",
 # That mechanism was retired on 2026-08-26 (see apply_plan_change): an upgrade
 # is now a NEW Checkout for the target (SKU, term), and only after
 # checkout.session.completed does the webhook cancel the replaced
-# subscriptions with prorate=True. Their unused time becomes customer-balance
-# credit against future invoices, so the new plan's full price is due at
-# checkout. The same flow covers monthly → 6-month on the SAME SKU. The one
-# asymmetry left: a change may never LOWER the term on the same SKU (6-month
-# NCAAF → monthly NCAAF); that attempt is BLOCKED (_raise_blocked). A bigger
+# subscriptions with prorate=True, so the new plan's full price is due at
+# checkout. Stripe records the replaced plans' unused time as a pending
+# proration invoice item tied to the cancelled subscription (NOT
+# customer-balance credit); which invoice applies it is unverified. The same
+# flow covers monthly → 6-month on the SAME SKU. The one asymmetry left: a
+# change may never LOWER the term on the same SKU (6-month NCAAF → monthly
+# NCAAF); that attempt is BLOCKED (_raise_blocked). A bigger
 # package on monthly against a held 6-month one is an ordinary upgrade now
 # (see _scan_changes).
 
@@ -336,14 +334,15 @@ def _scan_changes(customer_id: str, target_sku: str,
     slug they grant is also granted by the target (NCAAF → Football Bundle,
     anything → All-Access) or because it's the same SKU moving up a term
     (monthly → 6-month). These are retired with prorate=True once the upgrade
-    checkout is PAID; their unused time lands as customer-balance credit.
+    checkout is PAID; their unused time becomes a pending proration credit
+    item (see apply_plan_change).
 
     blocked — ONLY the same-SKU term downgrade (6mo NCAAF → monthly NCAAF):
     that is not an upgrade at all, just a worse term. Until 2026-08-26 any
     lower-term target was blocked — including a BIGGER package on monthly held
     against a 6-month sport/bundle — because the old in-place price swap would
-    have stranded the prepaid remainder. The Checkout flow credits it to the
-    customer balance instead, so that combination now simply works (it was
+    have stranded the prepaid remainder. The Checkout flow cancels it with
+    proration instead, so that combination now simply works (it was
     the bug report: 'upgrading to a larger package on monthly from a 6-month
     plan does nothing').
     """
@@ -397,8 +396,9 @@ def _raise_blocked(blocked: list[dict], sku: str) -> None:
         409,
         "You're prepaid on the 6-month term for " +
         ", ".join(b["label"] for b in blocked) +
-        " — switching it to monthly isn't an upgrade. It renews monthly "
-        "automatically only if you cancel the 6-month term first.",
+        " — switching it to monthly isn't an upgrade. To move to monthly, "
+        "cancel it from your account and subscribe monthly once the paid "
+        "term ends.",
     )
 
 
@@ -410,9 +410,8 @@ def plan_change_preview(user: dict, sku: str, term: str = "monthly") -> dict:
     2026-08-26 the upgrade quote is the target's plain package price
     (`ent.display_cents`, returned as both `due_now_cents` and `then_cents`),
     not a Stripe proration preview: the upgrade is a new Checkout, and the
-    replaced subscriptions' unused time lands as customer-balance credit
-    against future invoices once the webhook cancels them (see
-    apply_plan_change).
+    replaced subscriptions' unused time becomes a pending proration credit
+    item once the webhook cancels them (see apply_plan_change).
 
     Refuses a partner uid: when a customer mapping exists this lists the
     customer's Stripe subscriptions, and it is step one of both the checkout
@@ -444,9 +443,9 @@ def plan_change_preview(user: dict, sku: str, term: str = "monthly") -> dict:
 
     # Upgrades now settle through Checkout (John, 2026-08-26 — see
     # apply_plan_change), so the quote is the plain package price: the member
-    # pays the new plan at checkout, and the unused time on every replaced
-    # subscription is cancelled WITH proration, landing as credit on their
-    # customer balance against future invoices. No proration preview call —
+    # pays the new plan at checkout, and every replaced subscription is
+    # cancelled WITH proration: a pending credit item for its unused time,
+    # not customer-balance credit (see apply_plan_change). No preview call —
     # the old create_preview was also a 503 source when Stripe balked.
     then_cents = ent.display_cents(sku, term)
     return {
@@ -482,8 +481,21 @@ def apply_plan_change(user: dict, sku: str, term: str = "monthly") -> dict:
     purchases). The replaced subscriptions are NOT touched here: the session
     carries their ids in metadata, and the webhook cancels them with
     `prorate=True` only after `checkout.session.completed`, so an abandoned
-    checkout changes nothing. Their unused time becomes credit on the customer
-    balance, consumed by future invoices of the new plan.
+    checkout changes nothing.
+
+    What that proration does is NOT verified end to end. Stripe documents
+    `prorate` as generating "a proration invoice item that credits remaining
+    unused time": a PENDING invoice item tied to the cancelled subscription,
+    not customer-balance credit. Invoice items set to one subscription are
+    ignored by other subscriptions' scheduled invoices, and Stripe's cancel
+    guide says items left by an immediate cancel "won't be processed unless
+    you specifically generate an invoice that includes them" (while also
+    warning another active subscription might bill them). So whether the
+    new plan's renewals ever apply the credit is open; customer copy says
+    only that it is credited to the account. `invoice_now=True` would
+    finalize a negative invoice and move the credit onto the balance, which
+    Stripe applies to the next finalized invoice. That is a billing change,
+    John's call after the sandbox check in CLAUDE.md.
     """
     _refuse_partner(user, "plan change")
     plan = plan_change_preview(user, sku, term)
@@ -665,8 +677,9 @@ def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
             _warn_if_partner(uid, etype, customer_id)
             # Upgrade sessions carry the superseded subscription ids; retire
             # them only now — after payment — so an abandoned checkout leaves
-            # the customer exactly where they were. prorate=True parks each
-            # one's unused time as credit on the customer balance. Idempotent:
+            # the customer exactly where they were. prorate=True leaves a
+            # pending proration credit item for each one's unused time (not
+            # balance credit; see apply_plan_change). Idempotent:
             # webhook redelivery meets already-cancelled subscriptions, which
             # is success, not an error. Cancel BEFORE recompute so the
             # entitlement write reflects the post-upgrade state in one pass.

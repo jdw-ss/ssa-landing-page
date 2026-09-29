@@ -49,8 +49,7 @@ applies to the league apps. Architecture of record:
   from the session's `client_reference_id`, the subscription's `uid`
   metadata or a reverse lookup of `customers/{uid}` by Stripe customer id;
   billing refuses partner sessions in code since 2026-09-29 (commit
-  `21c791d`, **NOT yet deployed: the live revision still accepts partner
-  checkout**), so once deployed that uid should be an `ipl_*` one only for a
+  `21c791d`, **deployed 2026-09-29 in `ssa-landing-00043-sr2`**), so that uid should be an `ipl_*` one only for a
   purchase or a Checkout session opened before the deploy (Stripe keeps a
   session completable up to 24h) or a bypass such as a Dashboard-created
   subscription, and the webhook logs a WARNING naming it) and the ADR-0002
@@ -361,10 +360,8 @@ None.
   same doc. `partner.grant()` hard-refuses any other uid. Never widen that
   carve-out; a partner slug on a real customer's doc would be silently
   clobbered by the next Stripe event. **Enforced in both directions in code
-  since 2026-09-29 (commit `21c791d` plus its review-fix follow-up), NOT yet
-  deployed: the live revision (last deploy 2026-09-02) still accepts partner
-  checkout.** The deploy that carries it drops this qualifier and cites the
-  revision. (John: block partner members from Stripe.) One predicate,
+  since 2026-09-29 (commit `21c791d` plus its review-fix follow-up), LIVE
+  since the 2026-09-29 deploy (`ssa-landing-00043-sr2`).** (John: block partner members from Stripe.) One predicate,
   `api/partner_uid.py::is_partner_uid`, holds the only prefix literals in
   `api/`. `partner.grant()` uses it, and so does `billing._refuse_partner`,
   which 403s a partner session (detail names inplayLABS) before any Stripe

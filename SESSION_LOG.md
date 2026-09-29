@@ -6,6 +6,23 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-29 — Deployed `ssa-landing-00043-sr2` (partner checkout block, webhook retry, credit-free upgrade copy)
+
+**Agent**: claude-opus-5-5 | **Branch**: main | **Commits**: 21c791d..bb44b22 deployed; this commit (docs)
+
+- John approved after the local preview (normal /pricing + /account?upgrade=success on :8085, partner
+  view on :8087). `./deploy.sh` at HEAD bb44b22 → `ssa-landing-00043-sr2`, 100% traffic; rollback target
+  `ssa-landing-00042-xzv`. No config-sanity warnings; apex, www and /api/health 200; sweep scheduler kept.
+- Live checks: /pricing carries "When you upgrade, you pay the new package price today, and your current
+  plan is canceled once checkout completes." and no credit/proration wording; /api/billing/catalog
+  anonymous → partner_member false, partner_skus []; anonymous POST /api/billing/checkout → 401;
+  /account ships the new "Upgrade received" banner; the partner strings ship in the page script.
+- Docs flipped from "not yet deployed" to live (CLAUDE.md, ADR-0001 item 2, ADR-0002 notes).
+- Still open: the upgrade-credit sandbox test (John creating a Dashboard sandbox copied from live; key to
+  Keychain `STRIPE_SANDBOX_KEY`), then `/terms` §7 + `invoice_now` decisions.
+
+---
+
 ## 2026-09-29 — Upgrade-credit experiment: blocked; what the docs say
 
 **Agent**: claude-opus-5-5 | **Branch**: main | **Commits**: this commit (docs only)

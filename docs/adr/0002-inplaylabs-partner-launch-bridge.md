@@ -53,8 +53,8 @@ touching six league repos or the Stripe machinery.
    > partner-writer gotcha in `CLAUDE.md`.
 
    > **[Amended 2026-09-29, later the same day] Decision 2 is now enforced
-   > in code** (commit `21c791d` and its review-fix follow-up; live only
-   > from the deploy that carries them, and not deployed as of 2026-09-29).
+   > in code** (commit `21c791d` and its review-fix follow-up; live since
+   > the 2026-09-29 deploy, `ssa-landing-00043-sr2`).
    > John decided to block partner members from Stripe. The prefix
    > literals and the one predicate, `is_partner_uid`, live in
    > `api/partner_uid.py`. `grant()` uses it for its existing guard, and
@@ -77,8 +77,7 @@ touching six league repos or the Stripe machinery.
    > `tests/test_partner_billing_guard.py`.
 
    > **[Amended 2026-09-29, live check]** A read-only check of Firestore
-   > `ssa-auth-71d16` found no partner purchase as of 2026-09-29 (the guard
-   > is committed but not yet deployed). No partner uid has a Stripe
+   > `ssa-auth-71d16` found no partner purchase as of 2026-09-29 (checked before the guard's deploy). No partner uid has a Stripe
    > customer mapping (`customers/{uid}.stripe_customer_id`, written before
    > any Checkout session is created), so no partner account has reached
    > checkout. The 11

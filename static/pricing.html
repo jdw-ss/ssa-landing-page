@@ -281,6 +281,37 @@
         .upg-actions { display: flex; gap: 8px; margin-top: 10px; }
         .upg-actions button { width: auto; flex: 1; }
 
+        /* inplayLABS partner members (ADR-0002): their SSA access is bought and
+           managed on inplayLABS, so a partner session sees this note instead
+           of purchase controls. Tokens only; --text on --accent-wash over --bg
+           measures 13.0:1. The server 403s partner billing calls regardless. */
+        .partner-note {
+            max-width: 1000px;
+            margin: 24px auto 0;
+            padding: 14px 20px;
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            background: var(--accent-wash);
+            color: var(--text);
+            font-size: 13.5px;
+            line-height: 1.6;
+        }
+        .partner-note[hidden] { display: none; }
+        .partner-note strong { color: var(--accent); font-weight: 600; }
+        /* Per-card slot where the button would be: inert text, not a control
+           (no hover, no pointer). --text-dim / --text-muted on --bg-elev. */
+        .plan .partner-slot {
+            text-align: center;
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: default;
+        }
+        .plan .partner-slot.held { color: var(--text-dim); }
+
         .test-chip {
             display: inline-block;
             margin-left: 8px;
@@ -354,6 +385,13 @@
     </header>
 
     <div class="banner info" id="banner" role="status"></div>
+
+    <div class="partner-note" id="partner-note" role="note" hidden>
+        <strong>You're signed in through inplayLABS.</strong>
+        Your SSA access comes with your inplayLABS membership, so packages
+        can't be bought, upgraded or managed here. Add or change tools in your
+        inplayLABS account.
+    </div>
 
     <div class="free-strip">
         <strong>Every league site has a free tier — no account needed.</strong><br>
@@ -476,7 +514,14 @@
             const overlap = item.slugs.some((s) => data.held_slugs.includes(s));
 
             let action;
-            if (held(data.held_slugs, item.slugs)) {
+            if (data.partner_member) {
+                // inplayLABS partner session: no purchase path here at all
+                // (the server 403s it anyway). Inert text, and no /account
+                // link: /account bounces an email-less session to /signin.
+                action = held(data.held_slugs, item.slugs)
+                    ? '<div class="partner-slot held">✓ Included through inplayLABS</div>'
+                    : '<div class="partner-slot">Managed through inplayLABS</div>';
+            } else if (held(data.held_slugs, item.slugs)) {
                 if (heldPkg && heldPkg.term !== "6mo" && TERM === "6mo" && showPrices) {
                     // Held monthly, viewing 6-month: the same-SKU term upgrade.
                     action = '<button class="btn btn-primary" data-sku="' + item.sku +
@@ -718,6 +763,7 @@
                 const resp = await fetch("/api/billing/catalog", { credentials: "same-origin" });
                 if (!resp.ok) throw new Error("catalog HTTP " + resp.status);
                 CATALOG = await resp.json();
+                document.getElementById("partner-note").hidden = !CATALOG.partner_member;
                 renderGrids();
                 emitJsonLd(CATALOG);
             } catch (e) {

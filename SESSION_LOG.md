@@ -6,6 +6,71 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-09-29 — Partner members blocked from Stripe (ADR-0002 decision 2 enforced)
+
+John decided to block inplayLABS partner members from Stripe checkout. This
+closes the one-way-guard gap logged in the entry below. Before, a partner
+member who bought through /pricing would have their partner doc overwritten
+by the webhook recompute, and their next launch would then drop the Stripe
+slugs.
+
+- **One predicate**: new `api/partner_uid.py` holds `UID_PREFIX`,
+  `TEST_UID_PREFIX` and `is_partner_uid()`, and is the only place in `api/`
+  that spells the prefixes. `partner.py` re-exports the constants and
+  `grant()` calls the predicate.
+- **Server refusal** (`billing._refuse_partner`, a 403 whose detail names
+  inplayLABS, raised before any Stripe or Firestore call):
+  `create_checkout_session` (`POST /api/billing/checkout`),
+  `plan_change_preview` (`GET /api/billing/change-preview`: it lists Stripe
+  subscriptions when a customer mapping exists, and it is step one of both
+  purchase flows), `apply_plan_change` (`POST /api/billing/change`),
+  `create_portal_session` (`POST /api/billing/portal`), and
+  `_get_or_create_customer` as the backstop. Not gated: `/api/me` and
+  `/api/billing/catalog` (read-only), the session and partner routes (not
+  billing), and the webhook (not session-bound).
+- **Webhook**: never skips a partner uid. Skipping would leave a legacy
+  purchase's doc out of step with Stripe, so a cancellation would never
+  revoke, and a non-2xx only makes Stripe retry. It still recomputes and
+  logs a WARNING naming the uid (`_warn_if_partner`) on both
+  `checkout.session.completed` and `customer.subscription.*`.
+- **/pricing**: the catalog gains an additive `partner_member` flag, from
+  the same predicate. For a partner session the page shows an inplayLABS
+  note, and each card's button becomes inert text ("✓ Included through
+  inplayLABS" / "Managed through inplayLABS", with no `/account` link,
+  because /account bounces an email-less session to /signin). Anonymous and
+  normal signed-in visitors are unchanged. The flag comes from the server,
+  not from `account.js`'s client detection: `account.js` is vendored
+  byte-identically to every surface, and a copy of the regex in pricing.html
+  would be a third prefix source. /account needed no change, because it
+  already redirects an email-less partner session before its Manage billing
+  button renders. No static JS or CSS file was edited, so no `?v=` bump.
+- **Local preview**: `DEV_UID` (dev mode only) overrides the stub uid, and
+  a new workspace launch config `ssa-landing-partner` (port 8087,
+  `DEV_UID=ipl_preview`, `DEV_ENTITLEMENTS=nfl`) renders the partner view.
+  It was checked in the preview pane at desktop and 375px: the note shows,
+  the NFL card reads Included, and checkout and change-preview return 403.
+  The normal config (8085) still shows Subscribe and Active.
+- **Tests**: new `tests/test_partner_billing_guard.py` (20) plus
+  `tests/js/render_pricing.js`, which runs pricing.html's own script in a
+  node vm with a fake DOM. On a scratch copy of HEAD `d94c593`, 18 of the 20
+  fail and the 2 normal-uid controls pass. The AST scan finds `ipl_`/
+  `ipltest_` literals in HEAD's `partner.py`. HEAD's /pricing renders
+  Subscribe/Upgrade buttons for a partner payload, and labels a
+  partner-held NFL card "Included in Football Bundle". Suite: 107 passed
+  (was 87).
+- **Docs**: CLAUDE.md (data layer, run-locally partner view, the catalog
+  contract, and the partner-writer gotcha now "enforced since 2026-09-29"),
+  the ADR-0002 decision 2 second amendment note, an ADR-0001 Amendment item
+  2 resolved note, the docstrings in `partner.py`, `billing.py` and
+  `auth.py`, and the workspace `PROJECT_INDEX.md` row.
+
+**Not done here:** no deploy (the live service still accepts partner
+checkouts until the next deploy). No live check for an existing partner
+purchase either, which John asked for; after deploy, the new WARNING also
+surfaces one on its next Stripe event. The /account redirect of a partner
+session to /signin (the Google-auth trap `account.js` avoids in the header)
+is unchanged. The stale "prorated" copy listed below is unchanged.
+
 ## 2026-09-29 — Stale-doc corrections (doc + docstring only, no behaviour change)
 
 A 2026-09-29 verifier pass flagged docs that disagreed with the code. Each

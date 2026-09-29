@@ -20,6 +20,9 @@ Configuration:
   - FIREBASE_PROJECT_ID: Firebase project ID (shared `ssa-auth-71d16`).
   - DISABLE_AUTH:        "1"/"true"/"yes" stubs a dev@local user. Local dev
                          only. NEVER set on Cloud Run.
+  - DEV_UID:             the stub user's uid under DISABLE_AUTH (default
+                         "dev"); ignored otherwise. `ipl_preview` previews
+                         the inplayLABS partner view of /pricing.
 
 On Cloud Run the runtime SA verifies tokens via ADC; no JSON key involved.
 """
@@ -77,7 +80,10 @@ def _is_auth_disabled() -> bool:
 def _dev_user() -> dict:
     # example.com, not "dev@local" — Stripe's Customer.create rejects emails
     # without a TLD, which broke local test-mode checkout (2026-07-30).
-    return {"uid": "dev", "email": "dev@example.com", "name": "Dev User"}
+    # DEV_UID (dev mode only) swaps the stub uid, e.g. DEV_UID=ipl_preview to
+    # preview /pricing as an inplayLABS partner member (2026-09-29).
+    uid = os.environ.get("DEV_UID", "").strip() or "dev"
+    return {"uid": uid, "email": "dev@example.com", "name": "Dev User"}
 
 
 def _decode_session_cookie(session: Optional[str]) -> Optional[dict]:

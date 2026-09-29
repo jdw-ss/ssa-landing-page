@@ -44,8 +44,11 @@ FULL OVERWRITE that is idempotent, order-insensitive, and self-healing if an
 event is missed (any later event repairs the doc). The other writer is the
 inplayLABS partner bridge (api/partner.py, ADR-0002, armed 2026-08-26). It
 writes only synthetic ipl_*/ipltest_* uids and merges per sport, and
-partner.grant() refuses any other uid. That guard keeps partner writes off
-customer docs, but nothing on the checkout path refuses an ipl_* session.
+partner.grant() refuses any other uid. The reverse direction is enforced
+here since 2026-09-29 (John: block partner members from Stripe): every
+function below that could create or change a Stripe object for the session
+uid calls _refuse_partner first, which 403s a partner uid before any Stripe
+or Firestore call. Both sides share api/partner_uid.is_partner_uid.
 """
 
 from __future__ import annotations
@@ -57,6 +60,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from api import entitlements as ent
+from api import partner_uid
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +175,32 @@ def _stripe():
     return stripe
 
 
+# ── Partner members never enter Stripe (John, 2026-09-29) ────────────────────
+# inplayLABS members (ADR-0002) get their access, and pay for it, on
+# inplayLABS. If one bought here, the webhook's full-overwrite _recompute
+# would drop their partner grants/source/expires_at, and the next launch's
+# partner.grant() set() would drop the Stripe slugs, so a paying member could
+# lose paid access. Refusal is server-side on every path that could create or
+# change Stripe objects (and so, via the webhook, entitlements) for the
+# session uid. /pricing hides the controls for a partner session too, but
+# that is cosmetic; this is the control.
+
+PARTNER_BILLING_DETAIL = (
+    "Your SSA access comes through your inplayLABS membership, so it can't "
+    "be bought, upgraded or managed here. Manage your tools in your "
+    "inplayLABS account."
+)
+
+
+def _refuse_partner(user: dict, action: str) -> None:
+    """403 a partner session before anything touches Stripe or Firestore."""
+    uid = (user or {}).get("uid")
+    if partner_uid.is_partner_uid(uid):
+        logger.warning("Billing %s refused for inplayLABS partner uid %s "
+                       "(partner members never enter Stripe)", action, uid)
+        raise HTTPException(403, PARTNER_BILLING_DETAIL)
+
+
 # ── Checkout ─────────────────────────────────────────────────────────────────
 
 def _base_url() -> str:
@@ -179,7 +209,10 @@ def _base_url() -> str:
 
 def _get_or_create_customer(user: dict) -> str:
     """Stripe customer id for this Firebase uid, creating (and persisting the
-    mapping) on first checkout."""
+    mapping) on first checkout. Refuses a partner uid itself, as the last line
+    of defence: every public caller already did, but a new caller that forgets
+    must still never mint a Stripe customer for an ipl_*/ipltest_* uid."""
+    _refuse_partner(user, "customer creation")
     stripe = _stripe()
     uid = user["uid"]
     email = (user.get("email") or "").lower()
@@ -200,6 +233,7 @@ def create_checkout_session(user: dict, sku: str, term: str = "monthly",
     URL. `origin_sport` is the league the buyer came from (the ?sport= deep
     link) — allow-listed and echoed on the success URL so /account can point
     its post-checkout banner at the right dashboard."""
+    _refuse_partner(user, "checkout")
     _validate_term(term)
     if sku not in ent.SKUS:
         raise HTTPException(404, f"Unknown package: {sku}")
@@ -374,7 +408,12 @@ def plan_change_preview(user: dict, sku: str, term: str = "monthly") -> dict:
     replaced subscriptions' unused time lands as customer-balance credit
     against future invoices once the webhook cancels them (see
     apply_plan_change).
+
+    Refuses a partner uid: when a customer mapping exists this lists the
+    customer's Stripe subscriptions, and it is step one of both the checkout
+    and the upgrade flows on /pricing, so the refusal surfaces here first.
     """
+    _refuse_partner(user, "change-preview")
     _validate_term(term)
     if sku not in ent.SKUS:
         raise HTTPException(404, f"Unknown package: {sku}")
@@ -441,6 +480,7 @@ def apply_plan_change(user: dict, sku: str, term: str = "monthly") -> dict:
     checkout changes nothing. Their unused time becomes credit on the customer
     balance, consumed by future invoices of the new plan.
     """
+    _refuse_partner(user, "plan change")
     plan = plan_change_preview(user, sku, term)
     if plan["kind"] != "upgrade":
         raise HTTPException(409, "Nothing to upgrade — use checkout instead")
@@ -484,7 +524,14 @@ def create_portal_session(user: dict) -> str:
     effect at period end (access runs out the paid-for time, John 2026-08-08),
     and portal-side plan switches are off — upgrades go through
     apply_plan_change so SKU metadata and proration behave.
+
+    Refuses a partner uid: the portal can cancel or change subscriptions,
+    which the webhook turns into entitlement writes. A partner uid holding a
+    pre-2026-09-29 subscription is handled by an operator in the Stripe
+    Dashboard, not here (and /account never renders for an email-less
+    partner session anyway).
     """
+    _refuse_partner(user, "portal")
     stripe = _stripe()
     existing = ent.get_customer(user["uid"])
     if not existing or not existing.get("stripe_customer_id"):
@@ -502,6 +549,30 @@ def create_portal_session(user: dict) -> str:
 
 
 # ── Webhook → entitlements sync ──────────────────────────────────────────────
+
+def _warn_if_partner(uid: str, etype: str, customer_id: str) -> None:
+    """Make a Stripe event for a partner uid LOUD, without changing what the
+    webhook does with it.
+
+    Checkout refuses partner uids since 2026-09-29, so an event that resolves
+    to one is either a purchase made before the guard or a bypass. Either way
+    the webhook still recomputes, deliberately: skipping the write would leave
+    the doc out of step with Stripe (a cancellation would never revoke, a new
+    subscription would never grant), and refusing with a non-2xx only makes
+    Stripe retry the same event for days. The cost is known: _recompute
+    overwrites the partner doc (grants/source/expires_at dropped), and the
+    member's next launch rewrites it partner-only for the launched sport,
+    dropping the Stripe slugs. The WARNING names the uid so an operator can
+    reconcile by hand (cancel or refund the subscription in the Stripe
+    Dashboard, then let the member relaunch from inplayLABS).
+    """
+    if partner_uid.is_partner_uid(uid):
+        logger.warning(
+            "Stripe %s resolved to inplayLABS partner uid %s (customer %s): "
+            "entitlements/%s will be overwritten from Stripe state, dropping "
+            "its partner grants; reconcile by hand (ADR-0002 decision 2)",
+            etype, uid, customer_id, uid)
+
 
 def _recompute(uid: str, stripe_customer_id: str) -> None:
     """Rewrite entitlements/{uid} as a pure function of the customer's current
@@ -583,6 +654,7 @@ def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
         uid = field(obj, "client_reference_id")
         customer_id = field(obj, "customer")
         if uid and customer_id:
+            _warn_if_partner(uid, etype, customer_id)
             # Upgrade sessions carry the superseded subscription ids; retire
             # them only now — after payment — so an abandoned checkout leaves
             # the customer exactly where they were. prorate=True parks each
@@ -616,6 +688,7 @@ def handle_webhook(payload: bytes, sig_header: Optional[str]) -> dict:
             ent.uid_for_stripe_customer(customer_id) if customer_id else None
         )
         if uid and customer_id:
+            _warn_if_partner(uid, etype, customer_id)
             _recompute(uid, customer_id)
         else:
             logger.error("Subscription event %s: cannot resolve uid (customer=%s)",

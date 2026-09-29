@@ -11,18 +11,20 @@ the public paywall — works unchanged.
 Load-bearing design facts (full rationale in docs/adr/0002):
 
 - UID NAMESPACE ISOLATION. Partner uids are ``ipl_<sha256(sub)[:24]>``
-  (test lane: ``ipltest_``). The standing "only the Stripe webhook writes
-  entitlements/{uid}" ruling survives with one carve-out: this module is
-  the ONLY other writer, and ONLY for its own uid prefixes. The guard in
-  :func:`grant` enforces that at runtime. The design ASSUMES these uids
-  never enter Stripe checkout, so the webhook's full-overwrite
-  ``_recompute`` never touches a partner doc. As of 2026-09-29 no code
-  enforces that assumption. /api/billing/checkout accepts an ``ipl_*``
-  session, and billing.create_checkout_session has no prefix check. A
-  partner member who buys would have their doc rewritten by ``_recompute``
-  (``grants``/``source``/``expires_at`` dropped), and the next launch's
-  :func:`grant` ``set()`` would then drop the Stripe slugs. This is an open
-  issue for John to decide (ADR-0001 Amendment item 2).
+  (test lane: ``ipltest_``); the prefixes and the one predicate
+  (``is_partner_uid``) live in api/partner_uid.py. The standing "only the
+  Stripe webhook writes entitlements/{uid}" ruling survives with one
+  carve-out: this module is the ONLY other writer, and ONLY for partner
+  uids. The guard in :func:`grant` enforces that at runtime. The other
+  direction is enforced too, since 2026-09-29 (John: block partner members
+  from Stripe): every billing path that could create or change Stripe
+  objects 403s a partner uid (api/billing.py ``_refuse_partner``), so no
+  new partner purchase can reach the webhook's full-overwrite
+  ``_recompute``. Before that, a partner member who bought would have had ``grants``/``source``/
+  ``expires_at`` dropped by ``_recompute`` and the Stripe slugs dropped by
+  the next launch's :func:`grant` ``set()``. The webhook still writes a
+  partner uid's doc if a Stripe event names one (a pre-2026-09-29
+  purchase), and logs a WARNING when it does.
 
 - OPAQUE-ONLY. We request no email from the partner (John, 2026-08-25).
   The signed ``sub`` is the stable account key. The shared account widget
@@ -73,13 +75,16 @@ import requests as _requests
 from google.cloud import firestore
 
 from api import entitlements as ent
+from api import partner_uid
 
 logger = logging.getLogger(__name__)
 
 WINDOW_DAYS = int(os.environ.get("IPL_WINDOW_DAYS", "7"))
 TEST_WINDOW_DAYS = 1
-UID_PREFIX = "ipl_"
-TEST_UID_PREFIX = "ipltest_"
+# Re-exported from the one predicate module so _lane() and uid_for_sub()
+# mint exactly the namespace is_partner_uid() recognises.
+UID_PREFIX = partner_uid.UID_PREFIX
+TEST_UID_PREFIX = partner_uid.TEST_UID_PREFIX
 # Asymmetric only. "none" and HMAC are rejected by omission — an HS256
 # assertion "signed" with the public JWKS bytes must not verify.
 ALLOWED_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384"]
@@ -290,7 +295,7 @@ def grant(uid: str, slug: str, tool_id: str, *, window_days: int, db=None) -> No
     own prefixes — a bug that reached a real customer's doc would be
     clobber-fodder for the webhook recompute AND a rule violation.
     """
-    if not (uid.startswith(UID_PREFIX) or uid.startswith(TEST_UID_PREFIX)):
+    if not partner_uid.is_partner_uid(uid):
         raise LaunchError(f"grant refused for non-partner uid {uid!r}")
     db = db or ent._firestore()
     now = dt.datetime.now(dt.timezone.utc)

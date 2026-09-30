@@ -18,6 +18,8 @@ Write an entry at the end of any non-trivial session (anything that produced com
   anonymous → partner_member false, partner_skus []; anonymous POST /api/billing/checkout → 401;
   /account ships the new "Upgrade received" banner; the partner strings ship in the page script.
 - Docs flipped from "not yet deployed" to live (CLAUDE.md, ADR-0001 item 2, ADR-0002 notes).
+- 2026-09-30: John reports a manual test of the live deploy by a tester passed ("it all works"); the
+  specific paths exercised were not recorded.
 - Still open: the upgrade-credit sandbox test (John creating a Dashboard sandbox copied from live; key to
   Keychain `STRIPE_SANDBOX_KEY`), then `/terms` §7 + `invoice_now` decisions.
 

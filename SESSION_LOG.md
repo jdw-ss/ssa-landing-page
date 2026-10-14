@@ -6,9 +6,11 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
-## 2026-10-14 — NBA + NHL packages in the catalog (`sport_nba` / `sport_nhl`); apex deploy pending
+## 2026-10-14 — NBA + NHL on sale (`sport_nba` / `sport_nhl`) — DEPLOYED `ssa-landing-00045-pnh`
 
-**Agent**: claude-fable-5-1 | **Branch**: main | **Commits**: 7ec9b27, this commit (log)
+**Agent**: claude-fable-5-1 | **Branch**: main | **Commits**: 7ec9b27, 5dfe5f7 (log), this commit (stamp)
+
+Deployed 2026-10-14 ~14:00 ET: `scripts.stripe_bootstrap_live` (key from Secret Manager) created `prod_VRP7H1DhV3DmZB` NBA Package (`price_1UQWJYJNU4SozfdvoLdZxVeT` monthly, `price_1UQWJYJNU4SozfdvJqaj6AYB` 6mo) and `prod_VRP75FD5WYBJP0` NHL Package (`price_1UQWJZJNU4Sozfdv3nYMdxYR`, `price_1UQWJZJNU4Sozfdvb8opZZ9Y`), reused every existing product / price / the webhook / the portal; the four envs went on as rev 00044 (16 `STRIPE_PRICE_*` keys), then `./deploy.sh` → rev 00045. Smoke: catalog 8 SKUs with NBA/NHL at 9999/29999 and free list `Power rankings`; /pricing noscript names Golf, NBA; chip "Save 50% + future sports" (no 25% chip left); homepage NBA and NHL cards Live, Soccer the one Coming Soon; /help both copies flipped; anonymous checkout of sport_nba → 401; sitemap unchanged.
 
 John: "get both the NBA and NHL models up for sale on the website, and also bundled into the all-inclusive package."
 
@@ -24,7 +26,7 @@ John: "get both the NBA and NHL models up for sale on the website, and also bund
 - The league repos need no code change: the vendored `lockcard.js` prices the 402 card from the live catalog by slug.
 
 ### Open threads
-- Deploy runbook (integrator, needs John's gcloud token): `scripts.stripe_bootstrap_live` with the key read from Secret Manager (mints 2 Products + 4 Prices; prints the friend codes — never log them) → `gcloud run services update --update-env-vars` with the four new `STRIPE_PRICE_SPORT_N{BA,HL}[_6MO]` ids → `./deploy.sh` → the smoke probes (catalog 8 SKUs, chips, badges, /help) → Stripe Dashboard eyeball. Rollback is short-lived: the old catalog cannot resolve an NBA/NHL subscriber's webhook events.
+- Stripe Dashboard eyeball (John): Products → 8 active, NBA / NHL with one monthly and one 6-month price and the ESS tax code; optional end-to-end with one Friends & Family code on sport_nba. Rollback is short-lived: the old catalog cannot resolve an NBA/NHL subscriber's webhook events.
 - Pre-existing: `pricing.html`'s `fmt` has no thousands separator ($1799.94 on the All-Access strike-through).
 
 ## 2026-09-29 — Deployed `ssa-landing-00043-sr2` (partner checkout block, webhook retry, credit-free upgrade copy)

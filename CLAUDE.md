@@ -17,9 +17,11 @@ Stripe bound (secret + webhook + every price ID) and selling since 2026-08-08;
 `/pricing` renders real prices from `/api/billing/catalog`. The live payload
 reported `show_prices: true` and `billing_configured: true` on 2026-09-29.
 NBA and NHL packages (`sport_nba` / `sport_nhl`, $99.99/mo or $299.99 per 6
-months) are in the catalog since 2026-10-14 (apex deploy pending — the Stripe
-bootstrap, the four `STRIPE_PRICE_SPORT_N{BA,HL}[_6MO]` envs and `./deploy.sh`
-run in that order); Soccer is the only coming-soon league. All-Access stayed at
+months) sell since 2026-10-14 (rev `ssa-landing-00045-pnh`; the live bootstrap
+minted products `prod_VRP7H1DhV3DmZB` / `prod_VRP75FD5WYBJP0` with lookup keys
+`sport_nba_*` / `sport_nhl_*`, the four `STRIPE_PRICE_SPORT_N{BA,HL}[_6MO]` envs
+went on the service as rev 00044 before the code deploy); Soccer is the only
+coming-soon league. All-Access stayed at
 $299.99 (John: no increase, nobody migrated), which makes it half the six-sport
 sum — the chip reads "Save 50% + future sports".
 The "Pricing announced at launch" string in `pricing.html` is `planCard`'s

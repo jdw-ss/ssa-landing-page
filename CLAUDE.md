@@ -16,6 +16,12 @@ writes Firestore entitlements. Status: **LIVE** — deployed on Cloud Run,
 Stripe bound (secret + webhook + every price ID) and selling since 2026-08-08;
 `/pricing` renders real prices from `/api/billing/catalog`. The live payload
 reported `show_prices: true` and `billing_configured: true` on 2026-09-29.
+NBA and NHL packages (`sport_nba` / `sport_nhl`, $99.99/mo or $299.99 per 6
+months) are in the catalog since 2026-10-14 (apex deploy pending — the Stripe
+bootstrap, the four `STRIPE_PRICE_SPORT_N{BA,HL}[_6MO]` envs and `./deploy.sh`
+run in that order); Soccer is the only coming-soon league. All-Access stayed at
+$299.99 (John: no increase, nobody migrated), which makes it half the six-sport
+sum — the chip reads "Save 50% + future sports".
 The "Pricing announced at launch" string in `pricing.html` is `planCard`'s
 fallback for `show_prices: false`, which production never hits. It is not
 no-JS markup: no-JS visitors get the `<noscript>` ladder with real prices.
@@ -166,8 +172,9 @@ None.
 
 ## Deploy
 
-- **Command**: `./deploy.sh` (validates us-east1 image, warns on missing
-  FIREBASE/STRIPE envs, health-checks apex + www + `/api/health`)
+- **Command**: `./deploy.sh` (validates us-east1 image, warns on any of the 16
+  `STRIPE_PRICE_*` keys missing — NBA/NHL × 2 terms added 2026-10-14, exact-name
+  match — or a FIREBASE env, health-checks apex + www + `/api/health`)
 - **One-time paywall bootstrap**: `./deploy.sh bootstrap` prints the exact
   steps (Firestore create, IAM grants, Firebase authorizedDomains + OAuth
   redirect URI, envs, Stripe products/webhook). Steps 3's redirect-URI add is
@@ -254,6 +261,9 @@ None.
   cannot read `/api/billing/catalog`, so whenever prices change
   (`LAUNCH_PRICE_CENTS` in `api/entitlements.py`), update the `<noscript>`
   block in `static/pricing.html` in the same commit or it quotes stale prices.
+  Pinned since 2026-10-14 by `tests/test_pricing_static.py`: every sport label
+  and every `LAUNCH_PRICE_CENTS` amount must appear in the block, and no amount
+  in the block may be absent from the table.
 - **`/api/billing/catalog` is a cross-surface contract — additive fields
   only.** League public lock cards fetch and render it (wave 1, 2026-09-02).
   The latest additions are `partner_member` (2026-09-29, true for an
@@ -265,7 +275,10 @@ None.
   `paid_features` (the /pricing free-vs-paid checklist, wave 2); those lists
   MIRROR each league public shell's tab ladder ("Free" vs "Subscribers"
   tags), so when a repo's tabs change, update `SKUS` in
-  `api/entitlements.py` in the same pass.
+  `api/entitlements.py` in the same pass. NBA and NHL `free_features` carry
+  only "Power rankings" although both public shells tag Margins & Totals
+  "Free": that tab renders an in-development stub — add it to both SKUs when
+  the keynumbers module ships.
 - **/pricing emits Product/Offer JSON-LD at render, gated on `show_prices`.**
   Prices come from the same catalog payload the cards display, so structured
   data can never disagree with checkout; while the launch gate hides amounts
@@ -290,8 +303,9 @@ None.
   and no purchase path while `STRIPE_SECRET_KEY` is unset on the service.**
   In production the gate has been open since Stripe was bound (2026-08-08),
   so the deployed site renders the decided ladder (`LAUNCH_PRICE_CENTS`):
-  sports $99.99/mo, bundle $149.99, All-Access $299.99; 6-month terms
-  $299.99/$449.99/$899.99. The live catalog reported `show_prices: true` on
+  six sports (CFL, NCAAF, NFL, Golf, NBA, NHL) $99.99/mo, bundle $149.99
+  (25% off its parts), All-Access $299.99 (half the six-sport sum since
+  2026-10-14); 6-month terms $299.99/$449.99/$899.99. The live catalog reported `show_prices: true` on
   2026-09-29. "Pricing announced at launch" (plus a disabled "Launching soon"
   button) is `planCard`'s fallback in `static/pricing.html` when the catalog
   says `show_prices: false`. You only see it locally when neither Stripe nor
@@ -419,7 +433,20 @@ None.
   `tests/test_league_status_drift.py` parses all three statements and fails
   the suite on any disagreement with the map — this exact drift already bit
   CFL (stale Coming-Soon after launch). When a league launches: flip the map
-  AND the homepage card AND both /help copies in the same commit.
+  AND the homepage card AND both /help copies in the same commit. Since
+  2026-10-14 `tests/test_billing_entitlements.py::test_sellable_sports_agree_with_skus_prices_and_status`
+  also ties `SELLABLE_SPORTS`, the sport SKUs, `LAUNCH_PRICE_CENTS` and this
+  map together (a sport sold while coming-soon, or sold without both price
+  rows, fails the suite), and the /help drift regex accepts the singular
+  "Soccer is in development".
+- **Repricing a SKU never changes existing subscriptions.** Stripe Prices are
+  immutable: the bootstrap mints a NEW id and prints
+  `STRIPE_PRICE_<SKU>=price_NEW,price_OLD`; the list goes on the service with
+  the delimiter override (`--update-env-vars='^:^STRIPE_PRICE_ALL_ACCESS=price_NEW,price_OLD'`),
+  the first id serves new checkouts and the old one keeps resolving existing
+  subscriptions. All-Access was NOT repriced when NBA + NHL joined (2026-10-14),
+  so no such list exists today; ToS §7 promises advance notice before a
+  renewal is charged at an INCREASED price.
 - **The apex is INDEXABLE as of 2026-08-16 — the launch gate is open.** John's
   call; `static/robots.txt` is `Allow: /` with the sitemap reference and the
   `noindex` metas came off `/`, `/pricing`, `/terms`, `/privacy` (`/help` was

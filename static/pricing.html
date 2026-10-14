@@ -412,10 +412,10 @@
         <!-- Static ladder — keep in step with LAUNCH_PRICE_CENTS
              (api/entitlements.py) whenever prices change. -->
         <div class="catalog-status">
-            Checkout needs JavaScript. The packages: CFL, NCAAF, NFL, and Golf
-            at $99.99/month each ($299.99 per 6 months), the NCAAF+NFL Football
-            Bundle at $149.99/month ($449.99 per 6 months), and All-Access at
-            $299.99/month ($899.99 per 6 months).
+            Checkout needs JavaScript. The packages: CFL, NCAAF, NFL, Golf, NBA,
+            and NHL at $99.99/month each ($299.99 per 6 months), the NCAAF+NFL
+            Football Bundle at $149.99/month ($449.99 per 6 months), and
+            All-Access at $299.99/month ($899.99 per 6 months).
         </div>
     </noscript>
     <div class="catalog-status hidden" id="catalog-status" role="status"></div>
@@ -493,11 +493,13 @@
             el.className = "plan" + (item.kind === "bundle" ? " bundle" : item.kind === "all" ? " all" : "");
             if (item.kind === "sport") el.dataset.sport = item.slugs[0];
 
-            // Both non-sport SKUs are priced at 25% off the sum of their parts
-            // (John, 2026-08-08); All-Access additionally absorbs future sports.
+            // The bundle is 25% off the sum of its parts (John, 2026-08-08).
+            // All-Access stayed at $299.99 when NBA + NHL joined the ladder
+            // (John, 2026-10-14), so it is now half the six-sport sum — and it
+            // additionally absorbs future sports.
             let chip = "";
             if (item.kind === "bundle") chip = '<div class="save-chip green">Save 25%</div>';
-            if (item.kind === "all") chip = '<div class="save-chip purple">Save 25% + future sports</div>';
+            if (item.kind === "all") chip = '<div class="save-chip purple">Save 50% + future sports</div>';
 
             // Launch gate: until Stripe is deliberately configured (or the
             // local SHOW_PREVIEW_PRICES override is set), show no amounts and

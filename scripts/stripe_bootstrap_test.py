@@ -13,7 +13,7 @@ amounts (e.g. the pre-2026-08-08 $9.99 placeholders) stay active and are
 appended to the printed env lines so test subscriptions on them keep
 resolving.
 
-Prints ready-to-paste .env lines (12: STRIPE_PRICE_<SKU> + …_6MO) when done.
+Prints ready-to-paste .env lines (16: STRIPE_PRICE_<SKU> + …_6MO) when done.
 
 Usage (from the project root):
     python3 -m scripts.stripe_bootstrap_test

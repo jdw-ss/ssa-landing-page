@@ -26,7 +26,8 @@ pages become module views with free + locked tabs.
 > **[Amended 2026-09-29]** 20% and 50% were the 2026-07-30 asks. The price
 > ladder John decided on 2026-08-08 is **25% off for both** the bundle and
 > All-Access (`api/entitlements.py` SKU comment + `LAUNCH_PRICE_CENTS`). See
-> the Amendment.
+> the Amendment. Since 2026-10-14 (NBA + NHL on the ladder, All-Access held
+> at $299.99) All-Access is 50% off its parts; the bundle stays 25%.
 
 What already existed:
 
@@ -181,6 +182,12 @@ the code and this Amendment are right.
    sellable sports. Both are 25% off, rounded up to .99. Evidence: the SKU
    catalog comment and the `LAUNCH_PRICE_CENTS` table with its comment in
    `api/entitlements.py`; the /pricing save chips read "Save 25%".
+   > **[Amended 2026-10-14]** NBA and NHL joined the sport ladder at $99.99
+   > (`sport_nba`, `sport_nhl`); All-Access stayed at $299.99 (John — no
+   > increase, so ToS §7's notice clause is not triggered and nobody is
+   > migrated), which is now **50% off the six-sport sum** ($599.94). The
+   > Football Bundle stays 25%. Chips: bundle "Save 25%", All-Access
+   > "Save 50% + future sports".
 2. **The Stripe webhook is no longer the only entitlements writer.** ADR-0002's
    inplayLABS bridge (built 2026-08-25, armed on both lanes 2026-08-26) writes
    `entitlements/{uid}` through `partner.grant()`, only for synthetic
@@ -208,3 +215,12 @@ the code and this Amendment are right.
    Evidence: the ATS gotchas in `ncaaf-dashboard/CLAUDE.md` and
    `cfl-elo-dashboard/CLAUDE.md`, and `cfl-elo-dashboard` ADR-0003 (Superseded
    2026-07-31).
+
+5. **NBA and NHL are sellable (2026-10-14).** `sport_nba` (NBA public shell
+   live 2026-10-13) and `sport_nhl` (live 2026-09-23) joined `SELLABLE_SPORTS`
+   at the sport ladder — $99.99/mo, $299.99 per 6 months; Stripe lookup keys
+   `sport_nba_monthly` / `sport_nba_6mo` / `sport_nhl_monthly` /
+   `sport_nhl_6mo`. All-Access stayed at $299.99 (John: no increase, so ToS §7
+   is not triggered and nobody is migrated), which supersedes item 1's 25%
+   figure for All-Access: it is now 50% off the six-sport sum. The bundle
+   stays 25%. Soccer is the only coming-soon league.

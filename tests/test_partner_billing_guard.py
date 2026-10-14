@@ -484,7 +484,7 @@ def test_pricing_shows_partner_note_instead_of_purchase_controls():
     got = _render_pricing(_payload(partner_member=True, held_slugs=["nfl"],
                                    partner_skus=IPL_SKUS))
     assert got["partner_note"] == {"hidden": False}, "partner note not shown"
-    assert len(got["cards"]) == 6
+    assert len(got["cards"]) == 8  # six sport cards + the bundle + All-Access
     for card in got["cards"]:
         assert "partner-slot" in card and "inplayLABS" in card
         assert "data-sku" not in card, "a purchase button survived"
@@ -504,7 +504,8 @@ def test_partner_cards_only_offer_what_inplaylabs_sells():
     assert INCLUDED in cards["NFL Package"]
     assert AVAILABLE in cards["NCAAF Package"]
     assert AVAILABLE in cards["CFL Package"]
-    for label in ("Golf Package", "Football Bundle", "All-Access"):
+    for label in ("Golf Package", "NBA Package", "NHL Package",
+                  "Football Bundle", "All-Access"):
         assert NOT_AVAILABLE in cards[label], label
         assert AVAILABLE not in cards[label], label
     assert not any("Managed through inplayLABS" in c for c in cards.values())
@@ -633,7 +634,8 @@ def test_pricing_held_package_states_for_a_normal_customer():
     assert not any("difference" in c for c in cards.values())
     # All-Access's slug is "all", so no card-level overlap: its button reads
     # Subscribe, and the change-preview on click turns it into the upgrade.
-    for label in ("CFL Package", "NCAAF Package", "Golf Package", "All-Access"):
+    for label in ("CFL Package", "NCAAF Package", "Golf Package",
+                  "NBA Package", "NHL Package", "All-Access"):
         assert ">Subscribe</button>" in cards[label], label
 
     cards = _by_label(_render_pricing(_payload(**nfl_monthly), term="6mo")["cards"])

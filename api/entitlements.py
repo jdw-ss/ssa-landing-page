@@ -5,8 +5,8 @@ The catalog here is the source of truth for WHAT each SKU unlocks (sport
 slugs). Stripe knows prices; this module knows meaning. League services check
 a customer's slug set server-side before returning paid data.
 
-Entitlement slugs are per-sport: "cfl", "ncaaf", "nfl", "golf" (sellable
-today), "soccer", "nba", "nhl" (reserved for future launches). The special
+Entitlement slugs are per-sport: "cfl", "ncaaf", "nfl", "golf", "nba", "nhl"
+(sellable today), "soccer" (reserved for a future launch). The special
 slug "all" means every sport, current and future — it is what the All-Access
 SKU grants, so new sports automatically join it.
 
@@ -44,10 +44,12 @@ logger = logging.getLogger(__name__)
 ALL_SLUG = "all"
 SPORT_SLUGS = ["cfl", "ncaaf", "nfl", "golf", "soccer", "nba", "nhl"]
 
-# Sports with a purchasable package today. Soccer/NBA/NHL join this list (and
-# get a SKU below) when their public products launch — All-Access customers
-# pick them up automatically via the "all" slug.
-SELLABLE_SPORTS = ["cfl", "ncaaf", "nfl", "golf"]
+# Sports with a purchasable package today. NBA + NHL joined 2026-10-14; Soccer
+# joins this list (and gets a SKU below) when its public product launches —
+# All-Access customers pick it up automatically via the "all" slug.
+# tests/test_billing_entitlements.py ties this list to the sport SKUs, the
+# price table and LEAGUE_STATUS, so the four can't drift apart.
+SELLABLE_SPORTS = ["cfl", "ncaaf", "nfl", "golf", "nba", "nhl"]
 
 # ── League launch status ─────────────────────────────────────────────────────
 # The ONE declared authority for which leagues are live vs. coming soon
@@ -66,8 +68,8 @@ LEAGUE_STATUS: dict[str, str] = {
     "cfl": "live",
     "golf": "live",
     "soccer": "coming-soon",
-    "nba": "coming-soon",
-    "nhl": "coming-soon",
+    "nba": "live",
+    "nhl": "live",
 }
 
 # ── Terms of Service ─────────────────────────────────────────────────────────
@@ -79,10 +81,12 @@ TOS_VERSION = "2026-08-13"
 # ── SKU catalog ──────────────────────────────────────────────────────────────
 # kind: "sport" | "bundle" | "all". Pricing ladder (John, 2026-08-08):
 # sports $99.99/mo; NCAAF+NFL is the only bundle, 25% off the sum ($149.99);
-# All-Access is 25% off the sum of every sellable sport ($299.99). Every SKU
-# also sells a 6-month prepaid term at 50% off six monthly cycles — six months
-# for the price of three. Real amounts come from the PRICE_DISPLAY_* envs; the
-# derivations below only shape the placeholder ladder.
+# All-Access is $299.99 — since NBA + NHL joined the ladder (2026-10-14, no
+# All-Access increase) that is half the sum of the six sellable sports
+# ($599.94). Every SKU also sells a 6-month prepaid term at 50% off six
+# monthly cycles — six months for the price of three. Real amounts come from
+# the PRICE_DISPLAY_* envs; the derivations below only shape the placeholder
+# ladder.
 #
 # free_features / paid_features (2026-09-02): the /pricing free-vs-paid
 # checklist. Each list MIRRORS the live product — the league public shell's
@@ -138,6 +142,33 @@ SKUS: dict[str, dict] = {
         "paid_features": ["Head-to-head & 3-ball matchup grades",
                           "DFS lineup builder"],
     },
+    "sport_nba": {
+        "label": "NBA Package",
+        "kind": "sport",
+        "slugs": ["nba"],
+        "blurb": "The NBA ELO model — power rankings, the daily schedule with "
+                 "predicted lines and picks, the Monte Carlo forecast with "
+                 "conference standings and play-in odds, team detail sheets "
+                 "and the season overview.",
+        "free_features": ["Power rankings"],
+        "paid_features": ["Daily schedule & picks with predicted lines",
+                          "Monte Carlo forecast — conference grids with play-in odds",
+                          "Team detail sheets",
+                          "Season overview"],
+    },
+    "sport_nhl": {
+        "label": "NHL Package",
+        "kind": "sport",
+        "slugs": ["nhl"],
+        "blurb": "The NHL ELO model — power rankings, the daily schedule with "
+                 "predicted lines and picks, the Monte Carlo playoff picture, "
+                 "team detail sheets and the season overview.",
+        "free_features": ["Power rankings"],
+        "paid_features": ["Daily schedule & picks with predicted lines",
+                          "Monte Carlo forecast — the playoff picture",
+                          "Team detail sheets",
+                          "Season overview"],
+    },
     "bundle_football": {
         "label": "Football Bundle",
         "kind": "bundle",
@@ -152,8 +183,8 @@ SKUS: dict[str, dict] = {
         "label": "All-Access",
         "kind": "all",
         "slugs": [ALL_SLUG],
-        "blurb": "Everything, everywhere — every sport and every module at 25% "
-                 "off the combined price, including new sports as they launch "
+        "blurb": "Everything, everywhere — every sport and every module at half "
+                 "the combined price, including new sports as they launch "
                  "at no extra cost.",
         "free_features": [],
         "paid_features": ["Every package for every sport",
@@ -163,8 +194,9 @@ SKUS: dict[str, dict] = {
 
 # ── Prices ───────────────────────────────────────────────────────────────────
 # The decided launch ladder (John, 2026-08-08), in cents. Sports $99.99/mo; the
-# Football Bundle is 25% off the sum of its parts ($149.99); All-Access is 25%
-# off the sum of all four sellable sports ($299.99) — and unlike four separate
+# Football Bundle is 25% off the sum of its parts ($149.99); All-Access stays
+# at $299.99 (John, 2026-10-14) — with NBA + NHL on the ladder that is half the
+# sum of the six sellable sports ($599.94), and unlike six separate
 # subscriptions it absorbs future sports for free. The 6-month term is "six
 # months for the price of three" (50% off six monthly cycles), rounded UP to
 # John's .99 convention: $299.97 → $299.99 and so on.
@@ -179,6 +211,8 @@ LAUNCH_PRICE_CENTS: dict[tuple[str, str], int] = {
     ("sport_ncaaf", "monthly"): 9999,      ("sport_ncaaf", "6mo"): 29999,
     ("sport_nfl", "monthly"): 9999,        ("sport_nfl", "6mo"): 29999,
     ("sport_golf", "monthly"): 9999,       ("sport_golf", "6mo"): 29999,
+    ("sport_nba", "monthly"): 9999,        ("sport_nba", "6mo"): 29999,
+    ("sport_nhl", "monthly"): 9999,        ("sport_nhl", "6mo"): 29999,
     ("bundle_football", "monthly"): 14999, ("bundle_football", "6mo"): 44999,
     ("all_access", "monthly"): 29999,      ("all_access", "6mo"): 89999,
 }

@@ -39,6 +39,8 @@ def test_one_league_unlocks_only_that_league():
     assert _unlocks(ent.SKUS["sport_cfl"]["slugs"]) == ["cfl"]
     assert _unlocks(ent.SKUS["sport_ncaaf"]["slugs"]) == ["ncaaf"]
     assert _unlocks(ent.SKUS["sport_golf"]["slugs"]) == ["golf"]
+    assert _unlocks(ent.SKUS["sport_nba"]["slugs"]) == ["nba"]
+    assert _unlocks(ent.SKUS["sport_nhl"]["slugs"]) == ["nhl"]
 
 
 def test_nfl_package_unlocks_both_nfl_modules():
@@ -55,8 +57,10 @@ def test_football_bundle_is_exactly_ncaaf_plus_nfl():
 def test_all_access_unlocks_every_sport_including_unlaunched():
     got = _unlocks(ent.SKUS["all_access"]["slugs"])
     assert sorted(got) == sorted(ent.SPORT_SLUGS)
-    # Sports with no product yet must be covered with no migration.
-    for future in ("soccer", "nba", "nhl"):
+    # Sports with no product yet must be covered with no migration (NBA and
+    # NHL were in this tuple until they got SKUs on 2026-10-14 — All-Access
+    # holders gained both with no Firestore touch, which is the point).
+    for future in ("soccer",):
         assert future in got
 
 
@@ -519,14 +523,24 @@ def test_recompute_stamps_the_term_on_each_package(monkeypatch):
 
 def test_display_ladder_is_the_decided_2026_08_08_numbers(monkeypatch):
     """Sports $99.99/mo; bundle $149.99 (25% off the pair); All-Access $299.99
-    (25% off the 4-sport sum); every 6-month price is John's rounded-up 50% of
+    (John, 2026-10-14: unchanged when NBA + NHL joined, so now half the
+    six-sport sum of $599.94); every 6-month price is John's rounded-up 50% of
     six monthly cycles. Envs override display without touching the table."""
     assert ent.display_cents("sport_nfl") == 9999
     assert ent.display_cents("sport_nfl", "6mo") == 29999
+    assert ent.display_cents("sport_nba") == 9999
+    assert ent.display_cents("sport_nba", "6mo") == 29999
+    assert ent.display_cents("sport_nhl") == 9999
+    assert ent.display_cents("sport_nhl", "6mo") == 29999
     assert ent.display_cents("bundle_football") == 14999
     assert ent.display_cents("bundle_football", "6mo") == 44999
     assert ent.display_cents("all_access") == 29999
     assert ent.display_cents("all_access", "6mo") == 89999
+    # All-Access's "Save 50%" chip (static/pricing.html) must stay honest
+    # against the live sport ladder: 1 − 299.99 / (6 × 99.99) = 49.997%.
+    sport_sum = sum(ent.display_cents(s) for s in ent.SKUS
+                    if ent.SKUS[s]["kind"] == "sport")
+    assert 0.499 <= 1 - ent.display_cents("all_access") / sport_sum <= 0.501
     # Every 6-month price is an honest "save 50%" claim (49.99%+ of 6×monthly).
     for sku in ent.SKUS:
         six, monthly = ent.display_cents(sku, "6mo"), ent.display_cents(sku)
@@ -553,5 +567,47 @@ def test_catalog_carries_a_feature_list_for_every_sku():
     assert "Mock-draft consensus board" in items["sport_nfl"]["free_features"]
     assert items["sport_golf"]["free_features"] == [
         "Tournament preview", "Course analysis", "Player trends"]
+    # NBA/NHL shells tag Margins & Totals "Free" too, but it renders an
+    # in-development stub, so it is not advertised (integrator's call, 2026-10-14,
+    # under John's go on the sale; add it when the keynumbers module ships).
+    assert items["sport_nba"]["free_features"] == ["Power rankings"]
+    assert items["sport_nhl"]["free_features"] == ["Power rankings"]
     assert items["bundle_football"]["free_features"] == []
     assert items["all_access"]["free_features"] == []
+
+
+def test_recompute_resolves_the_new_sport_skus(monkeypatch):
+    """The webhook resolves sport_nba / sport_nhl price ids by SKU name from
+    the four STRIPE_PRICE_SPORT_NBA* / _NHL* envs (2026-10-14) — no billing.py
+    change, so this pins that the generic path really covers them."""
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NBA", "price_nba_m")
+    monkeypatch.setenv("STRIPE_PRICE_SPORT_NHL_6MO", "price_nhl_6")
+    monkeypatch.setattr(billing, "_stripe", lambda: _fake_stripe([
+        _Sub("sub_1", "active", ["price_nba_m"]),
+        _six_sub("sub_2", "active", "price_nhl_6"),
+    ]))
+    written = {}
+    monkeypatch.setattr(
+        ent, "write_entitlements",
+        lambda uid, slugs, pkgs: written.update(slugs=sorted(set(slugs)), pkgs=pkgs))
+    billing._recompute("uid1", "cus_1")
+    assert written["slugs"] == ["nba", "nhl"]
+    terms = {p["sku"]: p["term"] for p in written["pkgs"]}
+    assert terms == {"sport_nba": "monthly", "sport_nhl": "6mo"}
+
+
+def test_sellable_sports_agree_with_skus_prices_and_status():
+    """SELLABLE_SPORTS, the sport SKUs, LAUNCH_PRICE_CENTS and LEAGUE_STATUS
+    are four hand-maintained tables that nothing in the app cross-checked
+    (nothing reads SELLABLE_SPORTS at runtime). A sport sold without a price
+    row 500s at checkout; one sold while marked coming-soon ships a Live
+    package behind a Coming Soon homepage card."""
+    sport_skus = {sku: spec["slugs"][0] for sku, spec in ent.SKUS.items()
+                  if spec["kind"] == "sport"}
+    assert sorted(sport_skus.values()) == sorted(ent.SELLABLE_SPORTS)
+    for sku in ent.SKUS:
+        for term in ("monthly", "6mo"):
+            assert (sku, term) in ent.LAUNCH_PRICE_CENTS, (sku, term)
+    for slug in ent.SELLABLE_SPORTS:
+        assert ent.LEAGUE_STATUS[slug] == "live", f"{slug} is sold but marked coming-soon"
+    assert set(ent.SELLABLE_SPORTS) <= set(ent.SPORT_SLUGS)

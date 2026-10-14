@@ -126,12 +126,12 @@ def test_homepage_badges_agree_with_the_status_map():
 # ── /help live-products copy (visible FAQ + FAQPage JSON-LD) ─────────────────
 
 _COPY_RE = re.compile(
-    r"([^.;]+?)\s+have live dashboards today;\s*([^.;]+?)\s+are in development"
+    r"([^.;]+?)\s+have live dashboards today;\s*([^.;]+?)\s+(?:is|are) in development"
 )
 
 
 def _help_copy_statements():
-    """Every 'X have live dashboards today; Y are in development' statement
+    """Every 'X have live dashboards today; Y is/are in development' statement
     in /help, as (live slugs, coming-soon slugs) pairs. The answer exists
     twice — visible <details> and the FAQPage JSON-LD — so two statements
     are expected, and both must agree with the map."""

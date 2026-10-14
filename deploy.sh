@@ -66,7 +66,7 @@ if [[ "${1:-}" == "bootstrap" ]]; then
       Sessions, Subscriptions, Invoices, Billing Portal, Prices/Products,
       Coupons/Promotion Codes, Webhook Endpoints (write for bootstrap; the
       running service itself never writes products/webhooks).
-   b. Run the live bootstrap (idempotent, safe to re-run). It mints the 6
+   b. Run the live bootstrap (idempotent, safe to re-run). It mints the 8
       Products × 2 Prices (monthly + 6-month) at the amounts in
       api/entitlements.py::LAUNCH_PRICE_CENTS, the Friends & Family 100%
       coupon + single-use codes, the webhook endpoint (signing secret goes
@@ -75,7 +75,7 @@ if [[ "${1:-}" == "bootstrap" ]]; then
         STRIPE_SECRET_KEY="$(gcloud secrets versions access latest \
             --secret=stripe-secret-key --project=golf-data-projects)" \
           python3 -m scripts.stripe_bootstrap_live
-   c. Bind both secrets and set the env lines the script printed (12×
+   c. Bind both secrets and set the env lines the script printed (16×
       STRIPE_PRICE_* + STRIPE_PORTAL_CONFIG \
     IPL_JWKS_URL IPL_ISSUER IPL_TOOL_MAP IPL_SWEEP_TOKEN):
       ⚠ --update-env-vars here too (see step 4) or this WIPES the Firebase vars.
@@ -129,10 +129,14 @@ for key in FIREBASE_API_KEY FIREBASE_PROJECT_ID FIREBASE_AUTH_DOMAIN FIREBASE_AP
            FIRESTORE_PROJECT_ID PUBLIC_BASE_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET \
            STRIPE_PORTAL_CONFIG \
            STRIPE_PRICE_SPORT_CFL STRIPE_PRICE_SPORT_NCAAF STRIPE_PRICE_SPORT_NFL \
-           STRIPE_PRICE_SPORT_GOLF STRIPE_PRICE_BUNDLE_FOOTBALL STRIPE_PRICE_ALL_ACCESS \
+           STRIPE_PRICE_SPORT_GOLF STRIPE_PRICE_SPORT_NBA STRIPE_PRICE_SPORT_NHL \
+           STRIPE_PRICE_BUNDLE_FOOTBALL STRIPE_PRICE_ALL_ACCESS \
            STRIPE_PRICE_SPORT_CFL_6MO STRIPE_PRICE_SPORT_NCAAF_6MO STRIPE_PRICE_SPORT_NFL_6MO \
-           STRIPE_PRICE_SPORT_GOLF_6MO STRIPE_PRICE_BUNDLE_FOOTBALL_6MO STRIPE_PRICE_ALL_ACCESS_6MO; do
-  if [[ "${ENVS}" != *"${key}"* ]]; then
+           STRIPE_PRICE_SPORT_GOLF_6MO STRIPE_PRICE_SPORT_NBA_6MO STRIPE_PRICE_SPORT_NHL_6MO \
+           STRIPE_PRICE_BUNDLE_FOOTBALL_6MO STRIPE_PRICE_ALL_ACCESS_6MO; do
+  # exact-name match: a substring test let a missing STRIPE_PRICE_SPORT_NBA hide
+  # behind its _6MO sibling (review 2026-10-14)
+  if ! printf '%s' "${ENVS}" | grep -o '[A-Z][A-Z0-9_]*' | grep -qx "${key}"; then
     echo "  ⚠ ${key} not set on the service — sign-in/billing degraded. See ./deploy.sh bootstrap"
   fi
 done

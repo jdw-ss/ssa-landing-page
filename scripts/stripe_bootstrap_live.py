@@ -19,7 +19,7 @@ reuses everything it already created. What it ensures, in order:
      updates and invoice history on, portal-side plan switches OFF (upgrades
      go through /api/billing/change so proration and SKU metadata behave).
 
-Prints the env lines deploy.sh needs (12× STRIPE_PRICE_*, STRIPE_PORTAL_CONFIG)
+Prints the env lines deploy.sh needs (16× STRIPE_PRICE_*, STRIPE_PORTAL_CONFIG)
 plus the promo codes. It does NOT touch the Cloud Run service — deploy.sh does.
 
 Usage (from the project root — the key comes from Secret Manager, so it never

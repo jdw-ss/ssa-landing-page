@@ -6,6 +6,27 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-10-14 — NBA + NHL packages in the catalog (`sport_nba` / `sport_nhl`); apex deploy pending
+
+**Agent**: claude-fable-5-1 | **Branch**: main | **Commits**: 7ec9b27, this commit (log)
+
+John: "get both the NBA and NHL models up for sale on the website, and also bundled into the all-inclusive package."
+
+### Changed
+- `api/entitlements.py`: `SELLABLE_SPORTS` + `LEAGUE_STATUS` nba/nhl → live; SKUs `sport_nba` / `sport_nhl` (kind sport, free `Power rankings`, paid schedule & picks / Monte Carlo forecast / team sheets / season overview) before `bundle_football`; `LAUNCH_PRICE_CENTS` rows 9999 / 29999 each; All-Access blurb "at half the combined price".
+- `static/index.html` NBA + NHL cards Live with rewritten blurbs; `static/help/index.html` both copies ("…NBA, and NHL have live dashboards today; Soccer is in development"); `static/pricing.html` noscript ladder + All-Access chip "Save 50% + future sports".
+- `deploy.sh` sanity loop: four new keys, exact-name match (a missing `STRIPE_PRICE_SPORT_NBA` used to hide behind its `_6MO` sibling); bootstrap docstrings 6 → 8 products; `.env.example`.
+- Tests 149 → 152: drift regex accepts the singular, partner card count 8, the one-league matrix + the new `test_pricing_static.py`; `docs/adr/0001` amendment 5; CLAUDE.md.
+
+### Decisions
+- All-Access stays $299.99 / $899.99 (no increase, so ToS §7's notice clause is not triggered and nobody is migrated); the copy now says half / Save 50%. Repricing to the 25% rule ($449.99 / $1,349.99 for new buyers) was offered to John, not taken.
+- Free list for the two cards = "Power rankings" only (Margins & Totals is a stub on both shells).
+- The league repos need no code change: the vendored `lockcard.js` prices the 402 card from the live catalog by slug.
+
+### Open threads
+- Deploy runbook (integrator, needs John's gcloud token): `scripts.stripe_bootstrap_live` with the key read from Secret Manager (mints 2 Products + 4 Prices; prints the friend codes — never log them) → `gcloud run services update --update-env-vars` with the four new `STRIPE_PRICE_SPORT_N{BA,HL}[_6MO]` ids → `./deploy.sh` → the smoke probes (catalog 8 SKUs, chips, badges, /help) → Stripe Dashboard eyeball. Rollback is short-lived: the old catalog cannot resolve an NBA/NHL subscriber's webhook events.
+- Pre-existing: `pricing.html`'s `fmt` has no thousands separator ($1799.94 on the All-Access strike-through).
+
 ## 2026-09-29 — Deployed `ssa-landing-00043-sr2` (partner checkout block, webhook retry, credit-free upgrade copy)
 
 **Agent**: claude-opus-5-5 | **Branch**: main | **Commits**: 21c791d..bb44b22 deployed; this commit (docs)

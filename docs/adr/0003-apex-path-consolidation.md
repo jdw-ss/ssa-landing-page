@@ -46,7 +46,9 @@ IP `34.160.208.32`) fronts the whole family:
    fetch ssa-landing statics on the apex).
 2. **Dual-depth serving, `root_path`-only middleware.** Each league app
    serves its internal host unprefixed AND its apex path prefixed. The apex
-   middleware (keyed strictly on the apex Host from `X-Forwarded-Host`)
+   middleware (keyed strictly on the apex `Host`; amended 2026-11-05 — it
+   first read `X-Forwarded-Host`, which every front door passes through from
+   the client unchanged, and each league's `api/hosts.py` now reads `Host` only)
    sets `scope["root_path"]` and NEVER strips `scope["path"]` — ASGI
    requires root_path ⊆ path; the strip-both form shipped first and 404'd
    every prefixed static while health routes passed (Mount child scopes

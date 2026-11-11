@@ -143,7 +143,10 @@ these; the public schedule payload should leave room for a teaser row.
 
 Firestore database in `ssa-auth-71d16` (us-east1); apex runtime SA →
 `roles/datastore.user` on `ssa-auth-71d16` + `serviceAccountTokenCreator` on
-itself; apex + www added to Firebase authorizedDomains (merge-PATCH, it's a
+itself [amended 2026-11-11: ON THE SHARED SSO SIGNER `ssa-session-signer@ssa-auth-71d16`,
+which `api/auth.py` signs custom tokens as; TokenCreator on the SA itself signs
+nothing, and a runtime-SA change drops the signer grant (the 2026-11-11 nba / nhl
+outage); `./deploy.sh bootstrap` prints the corrected step]; apex + www added to Firebase authorizedDomains (merge-PATCH, it's a
 full replace); `https://sportsbookscienceanalytics.com/__/auth/handler` added
 to the shared OAuth web client's redirect URIs (Console-only); `FIREBASE_*`
 envs on the service; Stripe products/prices created (test mode first),

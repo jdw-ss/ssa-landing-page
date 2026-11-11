@@ -6,6 +6,33 @@ Write an entry at the end of any non-trivial session (anything that produced com
 
 ---
 
+## 2026-11-11 — Bootstrap step 2 prints the SSO grant ON THE SHARED SIGNER (it printed a self-grant)
+
+**Agent**: claude-opus-5-5 (side session: fleet rollout of the 2026-11-11 SSO-signer fix) | **Branch**: `main` | **Commits**: this one
+
+- **Why**: `GET /api/session/exchange` signs its custom token AS `ssa-session-signer@ssa-auth-71d16` (`api/auth.py`'s
+  `serviceAccountId`), so the runtime SA needs `roles/iam.serviceAccountTokenCreator` ON THE SIGNER. The apex has worked only through the one-off 2026-08-08 grant (its SA, golf-data-projects' default compute SA, was
+  among that day's members).
+  nba and nhl lost the one-off 2026-08-08 grant when they moved to dedicated SAs and every exchange with a valid
+  cookie 500'd for weeks, unseen (fixed 2026-11-11: nba 338e082, nhl 0904984; guidelines → the 2026-11-11 Key
+  Lesson). The same review found this repo PRINTING the obsolete self-grant in `./deploy.sh bootstrap` step 2.
+- **Changed**: `./deploy.sh bootstrap` step 2 now prints `gcloud iam service-accounts add-iam-policy-binding
+  ssa-session-signer@… --project=ssa-auth-71d16 --member=serviceAccount:${SA} --role=…TokenCreator --condition=None`
+  with a note on why (and that golf's deploy re-grants the shared SA). The main deploy path is unchanged: it
+  executes no IAM by design, so the workspace guard lists this repo as KNOWN for the deploy-grant check. New
+  `tests/test_deploy_script.py::test_the_bootstrap_grants_token_creator_on_the_signer_auth_py_signs_as` pins the
+  printed grant to `api/auth.py`'s signer, for the live service's SA, and forbids any other TokenCreator target.
+- **Docs**: ADR-0001's One-time-bootstrap paragraph gets a dated 2026-11-11 amendment.
+- **Verification**: the new pin is green here and RED against this repo's pre-change `deploy.sh` + `auth.py` (HEAD
+  copies in a scratch dir); a mutation sweep on ncaaf + cfl copies (`|| true`, `2>&1`, commented-out grant, wrong
+  signer, re-added self-grant, `set +e`, grant moved after the deploy, empty-SA guard dropped, grant on `${SA}`)
+  failed the pin every time. Full suite: 153 passed, 1 warning (baseline before the change: 152 passed, 1 warning). Live (read-only,
+  2026-11-11): the service runs as `414719400214-compute (golf-data-projects' default compute)`, already on the signer's TokenCreator binding.
+  Workspace `scripts/sso-signer-check.sh` (new, same pass): static and `--live` checks clean for this repo.
+- **Not done / not verified**: no deploy and no IAM change here; the new block first runs on the next `./deploy.sh`
+  (an idempotent re-assert; the deployer needs setIamPolicy on the signer, i.e. owner or
+  iam.serviceAccountAdmin on ssa-auth-71d16, or the deploy stops at it by design).
+
 ## 2026-10-14 — NBA + NHL on sale (`sport_nba` / `sport_nhl`) — DEPLOYED `ssa-landing-00045-pnh`
 
 **Agent**: claude-fable-5-1 | **Branch**: main | **Commits**: 7ec9b27, 5dfe5f7 (log), this commit (stamp)

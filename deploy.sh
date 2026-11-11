@@ -23,18 +23,26 @@ if [[ "${1:-}" == "bootstrap" ]]; then
 1. Firestore for entitlements (shared auth project, us-east1):
    gcloud firestore databases create --project=ssa-auth-71d16 --location=us-east1
 
-2. Runtime SA needs Firestore access on ssa-auth-71d16, token mint on itself,
-   AND session-cookie minting rights (the 2026-07-31 field lesson: without the
-   last two lines, POST /api/session 500s and sign-in looks fine client-side
-   while every league site stays signed out):
+2. Runtime SA needs Firestore access on ssa-auth-71d16, TokenCreator ON THE
+   SHARED SSO SIGNER, AND session-cookie minting rights (the 2026-07-31 field
+   lesson: without the last two lines, POST /api/session 500s and sign-in
+   looks fine client-side while every league site stays signed out):
    SA=$(gcloud run services describe ssa-landing --region=us-east1 \
         --project=golf-data-projects \
         --format='value(spec.template.spec.serviceAccountName)')
    gcloud projects add-iam-policy-binding ssa-auth-71d16 \
      --member="serviceAccount:${SA}" --role="roles/datastore.user"
-   gcloud iam service-accounts add-iam-policy-binding "${SA}" \
-     --member="serviceAccount:${SA}" \
-     --role="roles/iam.serviceAccountTokenCreator" --project=golf-data-projects
+   # GET /api/session/exchange signs its custom token AS the shared signer
+   # (api/auth.py's serviceAccountId), so the grant goes ON THE SIGNER.
+   # TokenCreator on ${SA} itself (this step's advice until 2026-11-11) signs
+   # nothing auth.py mints. A runtime-SA change drops this grant (nba and nhl
+   # 500'd every exchange for weeks, 2026-11-11): re-run it for any new SA.
+   # Today ${SA} is golf-data-projects' default compute SA, which
+   # golf-dashboard also runs as; golf's deploy.sh re-grants it fail-loud.
+   gcloud iam service-accounts add-iam-policy-binding \
+     ssa-session-signer@ssa-auth-71d16.iam.gserviceaccount.com \
+     --project=ssa-auth-71d16 --member="serviceAccount:${SA}" \
+     --role="roles/iam.serviceAccountTokenCreator" --condition=None
    # create_session_cookie calls the Identity Toolkit API: it must be ENABLED
    # on the CALLING project, and the SA needs firebaseauth.admin on the auth
    # project (mirrors what every league runtime SA already has):

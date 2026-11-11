@@ -478,4 +478,9 @@ None.
   block sign-in on that failure, so the popup looks successful while the
   parent-domain cookie never exists. Both are in `./deploy.sh bootstrap` now.
   Diagnose via: apex logs "Failed to mint session cookie", league logs
-  `/api/session/exchange` → 401.
+  `/api/session/exchange` → 401. The LEAGUE internal-host mints need the same
+  pair and had neither until 2026-11-11 (the bootstrap comment claimed they
+  did): each league project now has the API on and its SA holds the
+  one-permission custom role `ssaSessionCookieMinter` instead of
+  `firebaseauth.admin` (guidelines → the SSO section). The apex SA keeps
+  `firebaseauth.admin`; golf-dashboard shares it.

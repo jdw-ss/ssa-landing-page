@@ -44,8 +44,12 @@ if [[ "${1:-}" == "bootstrap" ]]; then
      --project=ssa-auth-71d16 --member="serviceAccount:${SA}" \
      --role="roles/iam.serviceAccountTokenCreator" --condition=None
    # create_session_cookie calls the Identity Toolkit API: it must be ENABLED
-   # on the CALLING project, and the SA needs firebaseauth.admin on the auth
-   # project (mirrors what every league runtime SA already has):
+   # on the CALLING project (the SA's home project), and the SA needs
+   # firebaseauth.users.createSession on the auth project. The apex holds it
+   # through firebaseauth.admin (2026-07-31). This line used to claim it
+   # "mirrors what every league runtime SA already has": NO league had either
+   # until 2026-11-11, when each got the API plus the one-permission custom
+   # role ssaSessionCookieMinter (guidelines → the SSO section):
    gcloud services enable identitytoolkit.googleapis.com --project=golf-data-projects
    gcloud projects add-iam-policy-binding ssa-auth-71d16 \
      --member="serviceAccount:${SA}" --role="roles/firebaseauth.admin"
